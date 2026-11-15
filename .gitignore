@@ -1,0 +1,7 @@
+.DS_Store
+app/.build-xcode/
+app/DzhmilKit/.build/
+app/Dzhmil.xcodeproj/
+*.xcuserstate
+xcuserdata/
+.superpowers/

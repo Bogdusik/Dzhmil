@@ -1,0 +1,56 @@
+name: Dzhmil
+options:
+  bundleIdPrefix: com.bogdusik
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: RC37N9YRDC
+    CODE_SIGN_STYLE: Automatic
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+packages:
+  DzhmilKit:
+    path: DzhmilKit
+  WhisperKit:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    from: 0.9.0
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 3.1.0
+targets:
+  Dzhmil:
+    type: application
+    platform: macOS
+    sources:
+      - Dzhmil
+    dependencies:
+      - package: DzhmilKit
+        product: DzhmilCore
+      - package: WhisperKit
+        product: WhisperKit
+      - package: KeyboardShortcuts
+    info:
+      path: Dzhmil/Info.plist
+      properties:
+        CFBundleDisplayName: Джміль
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSMinimumSystemVersion: "15.0"
+        NSMicrophoneUsageDescription: Джміль слушает тебя, только пока ты держишь клавишу.
+        NSAppleEventsUsageDescription: Джміль управляет приложениями, когда ты его просишь.
+    entitlements:
+      path: Dzhmil/Dzhmil.entitlements
+      properties:
+        com.apple.security.automation.apple-events: true
+        com.apple.security.device.audio-input: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bogdusik.dzhmil
+        PRODUCT_NAME: Dzhmil
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_IDENTITY: Apple Development
+        GENERATE_INFOPLIST_FILE: NO
+        ENABLE_APP_SANDBOX: NO
