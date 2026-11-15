@@ -1,0 +1,178 @@
+import Foundation
+
+public struct ConversationSettings: Equatable, Sendable {
+    public var model: String
+    public var effort: String
+
+    public init(model: String, effort: String) {
+        self.model = model
+        self.effort = effort
+    }
+}
+
+public enum ConversationEvent: Equatable, Sendable {
+    case sentence(String)
+    case toolStarted(String)
+    case toolFinished(String, ran: Bool)
+    case finished(text: String, didAct: Bool)
+    case failed(ClaudeError)
+}
+
+public actor Conversation {
+    static let maxRounds = 8
+    static let staleAfter: TimeInterval = 30 * 60
+    static let maxMessages = 60
+    static let lostMessage = "Я запутался, давай попробуем по-другому."
+
+    private let client: any ClaudeClient
+    private let executor: ToolExecutor
+    private let settings: @Sendable () -> ConversationSettings
+    private let profile: @Sendable () -> String
+    private let now: @Sendable () -> Date
+    private let timeZone: TimeZone
+
+    public private(set) var history: [JSONValue] = []
+    private var lastActivity: Date?
+    private var pendingRemark: String?
+    private var turnSnapshot: [JSONValue]?
+    private var currentTask: Task<Void, Never>?
+    private var generation = 0
+
+    public init(client: any ClaudeClient, executor: ToolExecutor,
+                settings: @escaping @Sendable () -> ConversationSettings,
+                profile: @escaping @Sendable () -> String,
+                now: @escaping @Sendable () -> Date = { Date() },
+                timeZone: TimeZone = .current) {
+        self.client = client
+        self.executor = executor
+        self.settings = settings
+        self.profile = profile
+        self.now = now
+        self.timeZone = timeZone
+    }
+
+    public func noteRemark(_ text: String) {
+        pendingRemark = text
+    }
+
+    public func resetIfStale() {
+        guard turnSnapshot == nil else { return }
+        let silent = lastActivity.map { now().timeIntervalSince($0) >= Self.staleAfter } ?? false
+        if silent || history.count >= Self.maxMessages {
+            history = []
+            lastActivity = nil
+        }
+    }
+
+    public func cancel() {
+        guard let snapshot = turnSnapshot else { return }
+        generation += 1
+        currentTask?.cancel()
+        currentTask = nil
+        history = snapshot
+        turnSnapshot = nil
+    }
+
+    public func send(_ text: String) -> AsyncStream<ConversationEvent> {
+        cancel()
+        resetIfStale()
+        let (stream, continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
+        generation += 1
+        let gen = generation
+        turnSnapshot = history
+        let content = PromptBuilder.userTurn(text, now: now(), timeZone: timeZone, remark: pendingRemark)
+        pendingRemark = nil
+        history.append(["role": "user", "content": .string(content)])
+        lastActivity = now()
+        currentTask = Task { await self.runTurn(gen: gen, continuation: continuation) }
+        return stream
+    }
+
+    private func isCurrent(_ gen: Int) -> Bool {
+        gen == generation && !Task.isCancelled
+    }
+
+    private func rollback(_ gen: Int) {
+        guard gen == generation, let snapshot = turnSnapshot else { return }
+        history = snapshot
+        turnSnapshot = nil
+    }
+
+    private func complete(_ gen: Int) {
+        guard gen == generation else { return }
+        turnSnapshot = nil
+        currentTask = nil
+        lastActivity = now()
+    }
+
+    private func runTurn(gen: Int, continuation: AsyncStream<ConversationEvent>.Continuation) async {
+        defer { continuation.finish() }
+        var splitter = SentenceSplitter()
+        var fullText = ""
+        var didAct = false
+        let system = PromptBuilder.system(profile: profile())
+        let tools = executor.definitions
+
+        for _ in 0..<Self.maxRounds {
+            let s = settings()
+            let request = MessagesRequest(model: s.model, system: system, messages: history, tools: tools, effort: s.effort)
+            var final: AssistantMessage?
+            do {
+                for try await event in client.stream(request) {
+                    guard isCurrent(gen) else { break }
+                    switch event {
+                    case .textDelta(let d):
+                        fullText += d
+                        for sentence in splitter.feed(d) { continuation.yield(.sentence(sentence)) }
+                    case .message(let m):
+                        final = m
+                    }
+                }
+            } catch {
+                guard isCurrent(gen) else { return }
+                rollback(gen)
+                continuation.yield(.failed(error as? ClaudeError ?? .network))
+                return
+            }
+            guard isCurrent(gen) else { return }
+            guard let message = final else {
+                rollback(gen)
+                continuation.yield(.failed(.network))
+                return
+            }
+            history.append(message.asHistoryEntry)
+
+            let uses = message.toolUses
+            guard message.stopReason == "tool_use", !uses.isEmpty else {
+                if let rest = splitter.flush() { continuation.yield(.sentence(rest)) }
+                complete(gen)
+                continuation.yield(.finished(text: fullText, didAct: didAct))
+                return
+            }
+
+            if let rest = splitter.flush() { continuation.yield(.sentence(rest)) }
+            if !fullText.isEmpty, !fullText.hasSuffix(" ") { fullText += " " }
+            var results: [JSONValue] = []
+            for use in uses {
+                continuation.yield(.toolStarted(use.name))
+                let outcome = await executor.execute(use)
+                guard isCurrent(gen) else { return }
+                if outcome.ran && !outcome.isError { didAct = true }
+                continuation.yield(.toolFinished(use.name, ran: outcome.ran))
+                var result: [String: JSONValue] = [
+                    "type": "tool_result",
+                    "tool_use_id": .string(use.id),
+                    "content": .string(outcome.content),
+                ]
+                if outcome.isError { result["is_error"] = true }
+                results.append(.object(result))
+            }
+            history.append(["role": "user", "content": .array(results)])
+        }
+
+        rollback(gen)
+        currentTask = nil
+        continuation.yield(.sentence(Self.lostMessage))
+        continuation.yield(.finished(text: Self.lostMessage, didAct: didAct))
+    }
+}
