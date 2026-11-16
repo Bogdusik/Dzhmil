@@ -4,6 +4,7 @@ import DzhmilCore
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
+    let director = DroneDirector()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -25,6 +26,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Выйти", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
         statusItem = item
+        #if DEBUG
+        if let i = CommandLine.arguments.firstIndex(of: "--idle-seconds"), i + 1 < CommandLine.arguments.count {
+            director.idleOverride = TimeInterval(CommandLine.arguments[i + 1])
+        }
+        #endif
+        director.start()
     }
 
     #if DEBUG

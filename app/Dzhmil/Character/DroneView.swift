@@ -1,28 +1,30 @@
+import AppKit
+import QuartzCore
 import SwiftUI
 import DzhmilCore
 
 enum DronePalette {
-    static let body = Color(hex: 0x00D4AA)
-    static let belly = Color(hex: 0x009C82)
-    static let shine = Color(hex: 0x7DF3D8)
-    static let frame = Color(hex: 0x20343A)
-    static let visor = Color(hex: 0x0A1B20)
-    static let eye = Color(hex: 0x8CFFE4)
-    static let uaBlue = Color(hex: 0x2B6FE0)
-    static let uaYellow = Color(hex: 0xFFD23F)
+    static let body = cg(0x00D4AA)
+    static let belly = cg(0x009C82)
+    static let shine = cg(0x7DF3D8, alpha: 0.7)
+    static let frame = cg(0x20343A)
+    static let visor = cg(0x0A1B20)
+    static let eye = cg(0x8CFFE4)
+    static let uaBlue = cg(0x2B6FE0)
+    static let uaYellow = cg(0xFFD23F)
+
+    static func cg(_ hex: UInt32, alpha: CGFloat = 1) -> CGColor {
+        CGColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
+    }
 }
 
 extension Color {
     init(hex: UInt32, opacity: Double = 1) {
-        self.init(.sRGB,
-                  red: Double((hex >> 16) & 0xFF) / 255,
-                  green: Double((hex >> 8) & 0xFF) / 255,
-                  blue: Double(hex & 0xFF) / 255,
-                  opacity: opacity)
+        self.init(.sRGB, red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255, opacity: opacity)
     }
 }
 
-struct DroneView: View {
+struct DroneView: NSViewRepresentable {
     static let width: CGFloat = 140
     static let canvas = CGSize(width: 240, height: 180)
     static var height: CGFloat { width * canvas.height / canvas.width }
@@ -30,294 +32,369 @@ struct DroneView: View {
     let state: DroneState
     let bankDegrees: Double
 
-    @State private var bobUp = false
-    @State private var blink = false
-    @State private var flipCount = 0
-    @State private var shakeCount = 0
+    func makeNSView(context: Context) -> DroneLayerView {
+        let v = DroneLayerView(width: Self.width)
+        v.apply(state: state)
+        v.setBank(bankDegrees)
+        return v
+    }
 
-    private var face: DroneFace { DroneFace.face(for: state) }
-    private var scale: CGFloat { Self.width / Self.canvas.width }
+    func updateNSView(_ view: DroneLayerView, context: Context) {
+        view.apply(state: state)
+        view.setBank(bankDegrees)
+    }
 
-    var body: some View {
-        DroneDrawing(face: face)
-            .frame(width: Self.canvas.width, height: Self.canvas.height)
-            .overlay { if face.ring { ListeningRing() } }
-            .overlay(alignment: .topTrailing) { if face.zzz { Snore() } }
-            .environment(\.droneBlink, blink)
-            .keyframeAnimator(initialValue: FlipPose(), trigger: flipCount) { content, pose in
-                content
-                    .rotationEffect(.degrees(pose.angle), anchor: UnitPoint(x: 0.5, y: 0.55))
-                    .offset(y: pose.lift)
-            } keyframes: { _ in
-                KeyframeTrack(\.angle) {
-                    CubicKeyframe(200, duration: 0.43)
-                    CubicKeyframe(360, duration: 0.52)
-                    LinearKeyframe(0, duration: 0.001)
-                }
-                KeyframeTrack(\.lift) {
-                    CubicKeyframe(-26, duration: 0.43)
-                    CubicKeyframe(0, duration: 0.52)
-                }
-            }
-            .keyframeAnimator(initialValue: 0.0, trigger: shakeCount) { content, angle in
-                content.rotationEffect(.degrees(angle), anchor: UnitPoint(x: 0.5, y: 0.55))
-            } keyframes: { _ in
-                KeyframeTrack {
-                    CubicKeyframe(-9, duration: 0.12)
-                    CubicKeyframe(9, duration: 0.16)
-                    CubicKeyframe(-6, duration: 0.14)
-                    CubicKeyframe(0, duration: 0.12)
-                }
-            }
-            .rotationEffect(.degrees(bankDegrees), anchor: UnitPoint(x: 0.5, y: 0.55))
-            .offset(y: face.propellersSpinning ? (bobUp ? -5 : 5) : 0)
-            .animation(face.propellersSpinning ? .easeInOut(duration: 1.3).repeatForever(autoreverses: true) : .easeOut(duration: 0.4), value: bobUp)
-            .scaleEffect(scale)
-            .frame(width: Self.width, height: Self.height)
-            .onAppear { bobUp = true }
-            .onChange(of: state) { _, new in
-                if new == .celebrating { flipCount += 1 }
-                if new == .error { shakeCount += 1 }
-                bobUp = face.propellersSpinning
-            }
-            .task(id: state == .sleeping) {
-                guard state != .sleeping else { return }
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(Double.random(in: 3.2...5.2)))
-                    withAnimation(.easeIn(duration: 0.07)) { blink = true }
-                    try? await Task.sleep(for: .milliseconds(110))
-                    withAnimation(.easeOut(duration: 0.09)) { blink = false }
-                }
-            }
-            .accessibilityElement()
-            .accessibilityLabel("Джміль")
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: DroneLayerView, context: Context) -> CGSize? {
+        CGSize(width: Self.width, height: Self.height)
     }
 }
 
-private struct FlipPose {
-    var angle: Double = 0
-    var lift: Double = 0
-}
+final class DroneLayerView: NSView {
+    private let pose = CALayer()
+    private let action = CALayer()
+    private let bob = CALayer()
+    private let canvas = CALayer()
 
-private struct BlinkKey: EnvironmentKey { static let defaultValue = false }
-extension EnvironmentValues {
-    var droneBlink: Bool {
-        get { self[BlinkKey.self] }
-        set { self[BlinkKey.self] = newValue }
+    private var blades: [CALayer] = []
+    private var discs: [CAShapeLayer] = []
+    private let led = CAShapeLayer()
+    private let eyesOpen = CALayer()
+    private let eyesBlink = CALayer()
+    private let eyesDart = CALayer()
+    private let eyesHappy = CALayer()
+    private let eyesSad = CALayer()
+    private let eyesSleepy = CALayer()
+    private let mouth = CALayer()
+    private var mouthBars: [CALayer] = []
+    private let ring = CAShapeLayer()
+    private let zzz = CATextLayer()
+
+    private var currentState: DroneState?
+    private let anchor = CGPoint(x: 0.5, y: 0.55)
+
+    init(width: CGFloat) {
+        let height = width * DroneView.canvas.height / DroneView.canvas.width
+        super.init(frame: CGRect(x: 0, y: 0, width: width, height: height))
+        wantsLayer = true
+        layer?.isGeometryFlipped = true
+        layer?.masksToBounds = false
+        build(size: CGSize(width: width, height: height))
     }
-}
 
-private struct DroneDrawing: View {
-    let face: DroneFace
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            Stroke(points: [(96, 82), (54, 56)], width: 8)
-            Stroke(points: [(144, 82), (186, 56)], width: 8)
-            Box(x: 47, y: 46, w: 14, h: 13, r: 3, color: DronePalette.frame)
-            Box(x: 179, y: 46, w: 14, h: 13, r: 3, color: DronePalette.frame)
-            Propeller(center: CGPoint(x: 54, y: 44), radius: 30, discHeight: 18, bladeThickness: 8, spinning: face.propellersSpinning)
-            Propeller(center: CGPoint(x: 186, y: 44), radius: 30, discHeight: 18, bladeThickness: 8, spinning: face.propellersSpinning)
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override var isFlipped: Bool { true }
 
-            Stroke(points: [(150, 66), (166, 40)], width: 3)
-            AntennaLED(mode: face.led)
+    private func build(size: CGSize) {
+        guard let root = layer else { return }
+        let scale = size.width / DroneView.canvas.width
+        let screenScale = NSScreen.main?.backingScaleFactor ?? 2
 
-            Stroke(points: [(102, 136), (96, 150)], width: 4)
-            Stroke(points: [(138, 136), (144, 150)], width: 4)
-
-            Box(x: 78, y: 66, w: 84, h: 62, r: 26, color: DronePalette.belly)
-            Box(x: 78, y: 60, w: 84, h: 62, r: 26, color: DronePalette.body)
-            Box(x: 96, y: 65, w: 30, h: 5, r: 2.5, color: DronePalette.shine.opacity(0.7))
-            Box(x: 87, y: 76, w: 66, h: 34, r: 15, color: DronePalette.visor)
-            Box(x: 94, y: 123, w: 52, h: 17, r: 5, color: DronePalette.frame)
-            Box(x: 111, y: 123, w: 18, h: 8.5, r: 0, color: DronePalette.uaBlue)
-            Box(x: 111, y: 131.5, w: 18, h: 8.5, r: 0, color: DronePalette.uaYellow)
-
-            DroneEyes(kind: face.eyes)
-            if face.mouthTalking { Mouth() }
-
-            Stroke(points: [(92, 108), (40, 122)], width: 10)
-            Stroke(points: [(148, 108), (200, 122)], width: 10)
-            Box(x: 31, y: 107, w: 18, h: 17, r: 4, color: DronePalette.frame)
-            Box(x: 191, y: 107, w: 18, h: 17, r: 4, color: DronePalette.frame)
-            Propeller(center: CGPoint(x: 40, y: 104), radius: 38, discHeight: 22, bladeThickness: 10, spinning: face.propellersSpinning)
-            Propeller(center: CGPoint(x: 200, y: 104), radius: 38, discHeight: 22, bladeThickness: 10, spinning: face.propellersSpinning)
+        for l in [pose, action, bob] {
+            l.bounds = CGRect(origin: .zero, size: size)
+            l.anchorPoint = anchor
+            l.position = CGPoint(x: size.width * anchor.x, y: size.height * anchor.y)
         }
-        .frame(width: DroneView.canvas.width, height: DroneView.canvas.height, alignment: .topLeading)
-    }
-}
+        root.addSublayer(pose)
+        pose.addSublayer(action)
+        action.addSublayer(bob)
 
-private struct Stroke: View {
-    let points: [(CGFloat, CGFloat)]
-    let width: CGFloat
-    var color: Color = DronePalette.frame
+        canvas.bounds = CGRect(origin: .zero, size: DroneView.canvas)
+        canvas.anchorPoint = .zero
+        canvas.position = .zero
+        canvas.transform = CATransform3DMakeScale(scale, scale, 1)
+        bob.addSublayer(canvas)
 
-    var body: some View {
-        Path { p in
-            guard let first = points.first else { return }
-            p.move(to: CGPoint(x: first.0, y: first.1))
+        func stroke(_ points: [(CGFloat, CGFloat)], _ width: CGFloat, _ color: CGColor = DronePalette.frame) -> CAShapeLayer {
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: points[0].0, y: points[0].1))
             for pt in points.dropFirst() { p.addLine(to: CGPoint(x: pt.0, y: pt.1)) }
+            let l = CAShapeLayer()
+            l.path = p
+            l.strokeColor = color
+            l.fillColor = nil
+            l.lineWidth = width
+            l.lineCap = .round
+            l.lineJoin = .round
+            l.contentsScale = screenScale
+            return l
         }
-        .stroke(color, style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
-    }
-}
 
-private struct Box: View {
-    let x, y, w, h, r: CGFloat
-    let color: Color
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: r, style: .continuous)
-            .fill(color)
-            .frame(width: w, height: h)
-            .offset(x: x, y: y)
-    }
-}
-
-private struct Propeller: View {
-    let center: CGPoint
-    let radius: CGFloat
-    let discHeight: CGFloat
-    let bladeThickness: CGFloat
-    let spinning: Bool
-
-    @State private var spin = false
-
-    var body: some View {
-        ZStack {
-            Ellipse()
-                .fill(DronePalette.frame.opacity(spinning ? 0.16 : 0))
-                .frame(width: radius * 2, height: discHeight)
-            Capsule()
-                .fill(DronePalette.frame)
-                .frame(width: radius * 2, height: bladeThickness)
-                .rotationEffect(.degrees(spin ? 360 : 0))
-                .animation(spin ? .linear(duration: 0.24).repeatForever(autoreverses: false) : .easeOut(duration: 0.8), value: spin)
-                .scaleEffect(x: 1, y: 0.3)
+        func box(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat, _ color: CGColor) -> CAShapeLayer {
+            let l = CAShapeLayer()
+            l.path = CGPath(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerWidth: min(r, w / 2), cornerHeight: min(r, h / 2), transform: nil)
+            l.fillColor = color
+            l.contentsScale = screenScale
+            return l
         }
-        .frame(width: radius * 2, height: discHeight)
-        .position(center)
-        .onAppear { spin = spinning }
-        .onChange(of: spinning) { _, new in spin = new }
-    }
-}
 
-private struct AntennaLED: View {
-    let mode: DroneFace.LED
-    @State private var on = true
-
-    var body: some View {
-        Circle()
-            .fill(DronePalette.uaYellow)
-            .frame(width: 9, height: 9)
-            .opacity(mode == .dim ? 0.35 : (on ? 1 : 0.25))
-            .position(x: 166, y: 39)
-            .animation(mode == .dim ? .default : .easeInOut(duration: mode == .fast ? 0.25 : 0.8).repeatForever(autoreverses: true), value: on)
-            .onAppear { on = false }
-            .onChange(of: mode) { _, _ in on.toggle() }
-    }
-}
-
-private struct DroneEyes: View {
-    let kind: DroneFace.Eyes
-    @Environment(\.droneBlink) private var blink
-    @State private var dart = false
-
-    var body: some View {
-        switch kind {
-        case .open, .wide, .darting:
-            HStack(spacing: 18) {
-                eye
-                eye
-            }
-            .scaleEffect(kind == .wide ? 1.25 : 1)
-            .scaleEffect(x: 1, y: blink ? 0.1 : 1)
-            .offset(x: kind == .darting ? (dart ? 3 : -3) : 0)
-            .animation(kind == .darting ? .easeInOut(duration: 0.35).repeatForever(autoreverses: true) : .default, value: dart)
-            .position(x: 120, y: 91)
-            .onAppear { dart = kind == .darting }
-            .onChange(of: kind) { _, new in dart = new == .darting }
-        case .happy:
-            Stroke(points: [(100, 95), (106, 87), (112, 95)], width: 3.2, color: DronePalette.eye)
-            Stroke(points: [(128, 95), (134, 87), (140, 95)], width: 3.2, color: DronePalette.eye)
-        case .sad:
-            Stroke(points: [(100, 90), (112, 85)], width: 3, color: DronePalette.eye)
-            Stroke(points: [(128, 85), (140, 90)], width: 3, color: DronePalette.eye)
-            HStack(spacing: 18) {
-                RoundedRectangle(cornerRadius: 4).fill(DronePalette.eye).frame(width: 10, height: 8)
-                RoundedRectangle(cornerRadius: 4).fill(DronePalette.eye).frame(width: 10, height: 8)
-            }
-            .position(x: 120, y: 98)
-        case .sleepy:
-            SleepyEye(x: 100)
-            SleepyEye(x: 128)
+        func propeller(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat, _ discH: CGFloat, _ thick: CGFloat) -> CALayer {
+            let holder = CALayer()
+            holder.bounds = CGRect(x: 0, y: 0, width: r * 2, height: discH)
+            holder.position = CGPoint(x: cx, y: cy)
+            let disc = CAShapeLayer()
+            disc.path = CGPath(ellipseIn: holder.bounds, transform: nil)
+            disc.fillColor = DronePalette.frame
+            disc.opacity = 0.16
+            holder.addSublayer(disc)
+            discs.append(disc)
+            let squash = CALayer()
+            squash.bounds = holder.bounds
+            squash.position = CGPoint(x: r, y: discH / 2)
+            squash.sublayerTransform = CATransform3DMakeScale(1, 0.3, 1)
+            let blade = CAShapeLayer()
+            blade.bounds = CGRect(x: 0, y: 0, width: r * 2, height: thick)
+            blade.position = CGPoint(x: r, y: discH / 2)
+            blade.path = CGPath(roundedRect: blade.bounds, cornerWidth: thick / 2, cornerHeight: thick / 2, transform: nil)
+            blade.fillColor = DronePalette.frame
+            squash.addSublayer(blade)
+            holder.addSublayer(squash)
+            blades.append(blade)
+            return holder
         }
-    }
 
-    private var eye: some View {
-        RoundedRectangle(cornerRadius: 5, style: .continuous)
-            .fill(DronePalette.eye)
-            .frame(width: 10, height: 14)
-    }
-}
+        let c = canvas
+        c.addSublayer(stroke([(96, 82), (54, 56)], 8))
+        c.addSublayer(stroke([(144, 82), (186, 56)], 8))
+        c.addSublayer(box(47, 46, 14, 13, 3, DronePalette.frame))
+        c.addSublayer(box(179, 46, 14, 13, 3, DronePalette.frame))
+        c.addSublayer(propeller(54, 44, 30, 18, 8))
+        c.addSublayer(propeller(186, 44, 30, 18, 8))
 
-private struct SleepyEye: View {
-    let x: CGFloat
+        c.addSublayer(stroke([(150, 66), (166, 40)], 3))
+        led.path = CGPath(ellipseIn: CGRect(x: 161.5, y: 34.5, width: 9, height: 9), transform: nil)
+        led.fillColor = DronePalette.uaYellow
+        c.addSublayer(led)
 
-    var body: some View {
-        Path { p in
+        c.addSublayer(stroke([(102, 136), (96, 150)], 4))
+        c.addSublayer(stroke([(138, 136), (144, 150)], 4))
+
+        c.addSublayer(box(78, 66, 84, 62, 26, DronePalette.belly))
+        c.addSublayer(box(78, 60, 84, 62, 26, DronePalette.body))
+        c.addSublayer(box(96, 65, 30, 5, 2.5, DronePalette.shine))
+        c.addSublayer(box(87, 76, 66, 34, 15, DronePalette.visor))
+        c.addSublayer(box(94, 123, 52, 17, 5, DronePalette.frame))
+        c.addSublayer(box(111, 123, 18, 8.5, 0, DronePalette.uaBlue))
+        c.addSublayer(box(111, 131.5, 18, 8.5, 0, DronePalette.uaYellow))
+
+        let eyeBox = CGRect(x: 101, y: 84, width: 38, height: 14)
+        for l in [eyesOpen, eyesBlink, eyesDart] {
+            l.bounds = CGRect(origin: .zero, size: eyeBox.size)
+            l.position = CGPoint(x: eyeBox.width / 2, y: eyeBox.height / 2)
+        }
+        eyesOpen.position = CGPoint(x: eyeBox.midX, y: eyeBox.midY)
+        eyesOpen.addSublayer(eyesBlink)
+        eyesBlink.addSublayer(eyesDart)
+        eyesDart.addSublayer(box(0, 0, 10, 14, 5, DronePalette.eye))
+        eyesDart.addSublayer(box(28, 0, 10, 14, 5, DronePalette.eye))
+        c.addSublayer(eyesOpen)
+
+        eyesHappy.addSublayer(stroke([(100, 95), (106, 87), (112, 95)], 3.2, DronePalette.eye))
+        eyesHappy.addSublayer(stroke([(128, 95), (134, 87), (140, 95)], 3.2, DronePalette.eye))
+        c.addSublayer(eyesHappy)
+
+        eyesSad.addSublayer(stroke([(100, 90), (112, 85)], 3, DronePalette.eye))
+        eyesSad.addSublayer(stroke([(128, 85), (140, 90)], 3, DronePalette.eye))
+        eyesSad.addSublayer(box(101, 94, 10, 8, 4, DronePalette.eye))
+        eyesSad.addSublayer(box(129, 94, 10, 8, 4, DronePalette.eye))
+        c.addSublayer(eyesSad)
+
+        for x: CGFloat in [100, 128] {
+            let p = CGMutablePath()
             p.move(to: CGPoint(x: x, y: 90))
             p.addQuadCurve(to: CGPoint(x: x + 12, y: 90), control: CGPoint(x: x + 6, y: 96))
+            let l = CAShapeLayer()
+            l.path = p
+            l.strokeColor = DronePalette.eye
+            l.fillColor = nil
+            l.lineWidth = 3.2
+            l.lineCap = .round
+            eyesSleepy.addSublayer(l)
         }
-        .stroke(DronePalette.eye, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
-    }
-}
+        c.addSublayer(eyesSleepy)
 
-private struct Mouth: View {
-    @State private var talk = false
-
-    var body: some View {
-        HStack(spacing: 1.7) {
-            ForEach(0..<3, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(DronePalette.eye)
-                    .frame(width: 3.5, height: 4)
-                    .scaleEffect(x: 1, y: talk ? 1.5 : 0.4)
-                    .animation(.easeInOut(duration: 0.25).repeatForever(autoreverses: true).delay(Double(i) * 0.12), value: talk)
-            }
+        for i in 0..<3 {
+            let bar = box(0, 0, 3.5, 4, 1.5, DronePalette.eye)
+            bar.bounds = CGRect(x: 0, y: 0, width: 3.5, height: 4)
+            bar.path = CGPath(roundedRect: bar.bounds, cornerWidth: 1.5, cornerHeight: 1.5, transform: nil)
+            bar.position = CGPoint(x: 114.75 + CGFloat(i) * 5.2, y: 103)
+            mouth.addSublayer(bar)
+            mouthBars.append(bar)
         }
-        .position(x: 120, y: 103)
-        .onAppear { talk = true }
+        c.addSublayer(mouth)
+
+        c.addSublayer(stroke([(92, 108), (40, 122)], 10))
+        c.addSublayer(stroke([(148, 108), (200, 122)], 10))
+        c.addSublayer(box(31, 107, 18, 17, 4, DronePalette.frame))
+        c.addSublayer(box(191, 107, 18, 17, 4, DronePalette.frame))
+        c.addSublayer(propeller(40, 104, 38, 22, 10))
+        c.addSublayer(propeller(200, 104, 38, 22, 10))
+
+        ring.bounds = CGRect(x: 0, y: 0, width: 168, height: 168)
+        ring.position = CGPoint(x: 120, y: 93.6)
+        ring.path = CGPath(ellipseIn: ring.bounds, transform: nil)
+        ring.strokeColor = DronePalette.body
+        ring.fillColor = nil
+        ring.lineWidth = 2
+        c.addSublayer(ring)
+
+        zzz.string = "z z z"
+        zzz.font = NSFont.monospacedSystemFont(ofSize: 22, weight: .semibold)
+        zzz.fontSize = 22
+        zzz.foregroundColor = DronePalette.cg(0x20343A, alpha: 0.75)
+        zzz.contentsScale = screenScale
+        zzz.bounds = CGRect(x: 0, y: 0, width: 90, height: 28)
+        zzz.position = CGPoint(x: 190, y: 20)
+        c.addSublayer(zzz)
     }
-}
 
-private struct ListeningRing: View {
-    @State private var grow = false
-
-    var body: some View {
-        Circle()
-            .stroke(DronePalette.body, lineWidth: 2)
-            .frame(width: 168, height: 168)
-            .scaleEffect(grow ? 1.5 : 0.7)
-            .opacity(grow ? 0 : 0.9)
-            .position(x: 120, y: 93.6)
-            .animation(.easeOut(duration: 1.4).repeatForever(autoreverses: false), value: grow)
-            .onAppear { grow = true }
-            .allowsHitTesting(false)
+    func setBank(_ degrees: Double) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        pose.transform = CATransform3DMakeRotation(CGFloat(degrees * .pi / 180), 0, 0, 1)
+        CATransaction.commit()
     }
-}
 
-private struct Snore: View {
-    @State private var drift = false
+    func apply(state: DroneState) {
+        guard state != currentState else { return }
+        let previous = currentState
+        currentState = state
+        let face = DroneFace.face(for: state)
 
-    var body: some View {
-        Text("z z z")
-            .font(.system(size: 22, weight: .semibold, design: .monospaced))
-            .foregroundStyle(DronePalette.frame.opacity(0.75))
-            .offset(x: drift ? 10 : -10, y: drift ? -30 : 0)
-            .opacity(drift ? 0 : 1)
-            .animation(.easeInOut(duration: 2.4).repeatForever(autoreverses: false), value: drift)
-            .onAppear { drift = true }
-            .allowsHitTesting(false)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
+        eyesOpen.isHidden = ![.open, .wide, .darting].contains(face.eyes)
+        eyesHappy.isHidden = face.eyes != .happy
+        eyesSad.isHidden = face.eyes != .sad
+        eyesSleepy.isHidden = face.eyes != .sleepy
+        eyesOpen.transform = face.eyes == .wide ? CATransform3DMakeScale(1.25, 1.25, 1) : CATransform3DIdentity
+        mouth.isHidden = !face.mouthTalking
+        ring.isHidden = !face.ring
+        zzz.isHidden = !face.zzz
+
+        setLoop(eyesBlink, "blink", eyesOpen.isHidden ? nil : {
+            let a = CAKeyframeAnimation(keyPath: "transform.scale.y")
+            a.values = [1, 1, 0.1, 1]
+            a.keyTimes = [0, 0.93, 0.96, 1]
+            a.duration = 4.2
+            return a
+        }())
+        setLoop(eyesDart, "dart", face.eyes == .darting ? pingPong("transform.translation.x", -3, 3, 0.35) : nil)
+
+        for blade in blades {
+            setLoop(blade, "spin", face.propellersSpinning ? {
+                let a = CABasicAnimation(keyPath: "transform.rotation.z")
+                a.fromValue = 0
+                a.toValue = Double.pi * 2
+                a.duration = 0.24
+                a.timingFunction = CAMediaTimingFunction(name: .linear)
+                return a
+            }() : nil)
+        }
+        for disc in discs { disc.opacity = face.propellersSpinning ? 0.16 : 0 }
+        setLoop(bob, "bob", face.propellersSpinning ? pingPong("transform.translation.y", -5, 5, 1.3, ease: true) : nil)
+
+        switch face.led {
+        case .dim:
+            setLoop(led, "led", nil)
+            led.opacity = 0.35
+        case .slow, .fast:
+            led.opacity = 1
+            setLoop(led, "led", pingPong("opacity", 1, 0.25, face.led == .fast ? 0.25 : 0.8, ease: true))
+        }
+
+        for (i, bar) in mouthBars.enumerated() {
+            let a = face.mouthTalking ? pingPong("transform.scale.y", 0.4, 1.5, 0.25, ease: true) : nil
+            a?.beginTime = CACurrentMediaTime() + Double(i) * 0.12
+            setLoop(bar, "talk", a)
+        }
+
+        setLoop(ring, "ring", face.ring ? {
+            let scale = CABasicAnimation(keyPath: "transform.scale")
+            scale.fromValue = 0.7
+            scale.toValue = 1.5
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0.9
+            fade.toValue = 0
+            let g = CAAnimationGroup()
+            g.animations = [scale, fade]
+            g.duration = 1.4
+            g.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            return g
+        }() : nil)
+
+        setLoop(zzz, "zzz", face.zzz ? {
+            let move = CABasicAnimation(keyPath: "transform.translation")
+            move.fromValue = NSValue(size: CGSize(width: -10, height: 0))
+            move.toValue = NSValue(size: CGSize(width: 10, height: -30))
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            let g = CAAnimationGroup()
+            g.animations = [move, fade]
+            g.duration = 2.4
+            return g
+        }() : nil)
+
+        CATransaction.commit()
+
+        if state == .celebrating, previous != .celebrating { playFlip() }
+        if state == .error, previous != .error { playShake() }
+    }
+
+    private func pingPong(_ keyPath: String, _ from: Double, _ to: Double, _ duration: Double, ease: Bool = true) -> CABasicAnimation {
+        let a = CABasicAnimation(keyPath: keyPath)
+        a.fromValue = from
+        a.toValue = to
+        a.duration = duration
+        a.autoreverses = true
+        a.timingFunction = CAMediaTimingFunction(name: ease ? .easeInEaseOut : .linear)
+        return a
+    }
+
+    private func setLoop(_ layer: CALayer, _ key: String, _ animation: CAAnimation?) {
+        guard let animation else {
+            layer.removeAnimation(forKey: key)
+            return
+        }
+        guard layer.animation(forKey: key) == nil else { return }
+        animation.repeatCount = .infinity
+        animation.isRemovedOnCompletion = false
+        layer.add(animation, forKey: key)
+    }
+
+    private func playFlip() {
+        let spin = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        spin.values = [0, 200 * Double.pi / 180, 2 * Double.pi]
+        spin.keyTimes = [0, 0.45, 1]
+        let lift = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        lift.values = [0, -26, 0]
+        lift.keyTimes = [0, 0.45, 1]
+        let g = CAAnimationGroup()
+        g.animations = [spin, lift]
+        g.duration = 0.95
+        g.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        action.add(g, forKey: "flip")
+    }
+
+    private func playShake() {
+        let shake = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        shake.values = [0, -9, 9, -6, 0].map { $0 * Double.pi / 180 }
+        shake.duration = 0.54
+        action.add(shake, forKey: "shake")
+    }
+
+    func renderImage(scale: CGFloat = 2) -> NSImage? {
+        guard let root = layer else { return nil }
+        let size = bounds.size
+        guard let ctx = CGContext(data: nil, width: Int(size.width * scale), height: Int(size.height * scale), bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.scaleBy(x: scale, y: scale)
+        ctx.translateBy(x: 0, y: size.height)
+        ctx.scaleBy(x: 1, y: -1)
+        root.render(in: ctx)
+        return ctx.makeImage().map { NSImage(cgImage: $0, size: size) }
     }
 }

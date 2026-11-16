@@ -34,12 +34,10 @@ enum StateGallery {
     static func renderAll(to directory: URL) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for s in DroneState.allCases {
-            let view = DroneView(state: s, bankDegrees: s == .flying ? 10 : 0)
-                .frame(width: 200, height: 160)
-                .background(Color(hex: 0xE9F4EC))
-            let r = ImageRenderer(content: view)
-            r.scale = 2
-            if let img = r.nsImage, let tiff = img.tiffRepresentation,
+            let view = DroneLayerView(width: 200)
+            view.apply(state: s)
+            view.setBank(s == .flying ? 10 : 0)
+            if let img = view.renderImage(), let tiff = img.tiffRepresentation,
                let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
                 try? png.write(to: directory.appendingPathComponent("\(s.rawValue).png"))
             }
