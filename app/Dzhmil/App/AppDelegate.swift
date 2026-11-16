@@ -3,43 +3,19 @@ import DzhmilCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusItem: NSStatusItem?
     let companion = Companion()
+    private var menuBar: MenuBarController?
+    private var onboarding: Onboarding?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
-        if let i = CommandLine.arguments.firstIndex(of: "--render-states"), i + 1 < CommandLine.arguments.count {
-            StateGallery.renderAll(to: URL(fileURLWithPath: CommandLine.arguments[i + 1]))
-            NSApp.terminate(nil)
-            return
-        }
-        if let i = CommandLine.arguments.firstIndex(of: "--transcribe-test"), i + 1 < CommandLine.arguments.count {
-            let path = CommandLine.arguments[i + 1]
-            Task {
-                await DebugTools.transcribeTest(path: path)
-                NSApp.terminate(nil)
-            }
-            return
-        }
+        if handleDebugArguments() { return }
         #endif
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "fanblades", accessibilityDescription: "Джміль")
-        let menu = NSMenu()
-        #if DEBUG
-        let gallery = NSMenuItem(title: "Галерея состояний", action: #selector(showGallery), keyEquivalent: "")
-        gallery.target = self
-        menu.addItem(gallery)
-        menu.addItem(.separator())
-        #endif
-        menu.addItem(withTitle: "Выйти", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        item.menu = menu
-        statusItem = item
-        #if DEBUG
-        if let i = CommandLine.arguments.firstIndex(of: "--idle-seconds"), i + 1 < CommandLine.arguments.count {
-            companion.director.idleOverride = TimeInterval(CommandLine.arguments[i + 1])
-        }
-        #endif
+        menuBar = MenuBarController(companion: companion)
         companion.start()
+        let onboarding = Onboarding(companion: companion)
+        onboarding.startIfNeeded()
+        self.onboarding = onboarding
         #if DEBUG
         if CommandLine.arguments.contains("--proactive-test") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [companion] in companion.proactive.fire(.dailyGreeting) }
@@ -48,8 +24,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
-    @objc private func showGallery() {
-        StateGallery.show()
+    private func argument(after flag: String) -> String? {
+        guard let i = CommandLine.arguments.firstIndex(of: flag), i + 1 < CommandLine.arguments.count else { return nil }
+        return CommandLine.arguments[i + 1]
+    }
+
+    private func handleDebugArguments() -> Bool {
+        if let dir = argument(after: "--render-states") {
+            StateGallery.renderAll(to: URL(fileURLWithPath: dir))
+            NSApp.terminate(nil)
+            return true
+        }
+        if let path = argument(after: "--transcribe-test") {
+            Task {
+                await DebugTools.transcribeTest(path: path)
+                NSApp.terminate(nil)
+            }
+            return true
+        }
+        if let seconds = argument(after: "--idle-seconds") {
+            companion.director.idleOverride = TimeInterval(seconds)
+        }
+        return false
     }
     #endif
 }

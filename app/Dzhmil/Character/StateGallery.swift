@@ -68,6 +68,10 @@ enum StateGallery {
                 try? png.write(to: directory.appendingPathComponent("\(s.rawValue).png"))
             }
         }
+        let icon = MenuBarController.icon()
+        if let tiff = icon.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+            try? png.write(to: directory.appendingPathComponent("menu-icon.png"))
+        }
         for (i, item) in StateGalleryView.samples.enumerated() {
             let r = ImageRenderer(content: BubbleView(bubble: item.1).padding(12).background(Color(hex: 0xE9F4EC)))
             r.scale = 2

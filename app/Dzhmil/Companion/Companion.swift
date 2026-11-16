@@ -57,6 +57,20 @@ final class Companion {
     }
 
     var model: CompanionViewModel { director.model }
+    var isListening: Bool { gate.isDown }
+
+    func checkKey() async -> String? {
+        let request = MessagesRequest(model: settings.model, system: "Ответь одним словом.",
+                                      messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512)
+        do {
+            for try await _ in client.stream(request) {}
+            return nil
+        } catch let error as ClaudeError {
+            return error.userMessage
+        } catch {
+            return ClaudeError.network.userMessage
+        }
+    }
 
     func start() {
         model.bubbleContent = { [weak self] bubble in
@@ -287,7 +301,7 @@ final class Companion {
         director.panel.resignKey()
     }
 
-    private func openTextInput() {
+    func openTextInput() {
         guard !director.machine.pendingConfirmation else { return }
         hideTask?.cancel()
         model.bubble = .input
