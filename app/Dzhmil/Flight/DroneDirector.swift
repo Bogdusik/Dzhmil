@@ -32,6 +32,7 @@ final class DroneDirector {
     private var chaseReturn: CGPoint?
     private var lastChaseStep = Date.distantPast
     private var lastCursorSpeed: Double = 0
+    private var recentSpeeds: [(time: TimeInterval, speed: Double)] = []
     private var startleCooldownUntil = Date.distantPast
     private let chaseEarliest = Date().addingTimeInterval(300)
     var chattiness: () -> Chattiness = { .normal }
@@ -127,6 +128,14 @@ final class DroneDirector {
         flight.fly(to: safe)
     }
 
+    func revealForCapture() {
+        panel.alphaValue = 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, isFullscreen else { return }
+            panel.animator().alphaValue = 0.25
+        }
+    }
+
     private func dockSpot() -> CGPoint {
         PerchPlanner.dockSpot(screen: ScreenEnvironment.currentScreen(), droneSize: DronePanel.droneSize)
     }
@@ -204,6 +213,8 @@ final class DroneDirector {
         let speed = lastMouse.map { hypot(mouse.x - $0.point.x, mouse.y - $0.point.y) / max(0.001, now - $0.time) } ?? 0
         lastMouse = (mouse, now)
         lastCursorSpeed = speed
+        recentSpeeds.append((now, speed))
+        recentSpeeds.removeAll { now - $0.time > 1.5 }
         updateEyes(mouse)
         if chaseUntil != nil { updateChase(mouse) }
 
@@ -216,6 +227,7 @@ final class DroneDirector {
         }
 
         if !overDrone, speed > Self.dodgeCursorSpeed, Date() >= startleCooldownUntil,
+           !machine.quiet, !machine.fullscreen, model.bubble == nil,
            hypot(mouse.x - flight.droneCenter.x, mouse.y - flight.droneCenter.y) < 150,
            machine.state == .hover || machine.state == .flying {
             startleCooldownUntil = Date().addingTimeInterval(5)
@@ -255,8 +267,10 @@ final class DroneDirector {
     }
 
     private func lifeGestures(_ now: Date) {
-        if chaseUntil == nil, now >= chaseEarliest, lastCursorSpeed > 20, !flight.isMoving, dragStart == nil, model.bubble == nil,
-           chasePolicy.shouldChase(now: now, chattiness: chattiness(), cursorSpeed: lastCursorSpeed,
+        let peakSpeed = recentSpeeds.map(\.speed).max() ?? 0
+        if chaseUntil == nil, now >= chaseEarliest, now >= dragLockUntil, lastCursorSpeed > 20, NSEvent.pressedMouseButtons == 0,
+           !flight.isMoving, dragStart == nil, model.bubble == nil,
+           chasePolicy.shouldChase(now: now, chattiness: chattiness(), cursorSpeed: peakSpeed,
                                    canWander: machine.canWander, bubbleVisible: model.bubble != nil) {
             startChase(now)
             return

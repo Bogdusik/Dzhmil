@@ -99,17 +99,32 @@ struct QuitAppTool: Tool {
     }
 }
 
-struct OpenURLTool: SafeTool {
+struct OpenURLTool: Tool {
     let name = "open_url"
     let description = "Открыть ссылку в браузере. Если передан не адрес, а текст, открывается поиск Google."
     let inputSchema = Schema.object(["url": Schema.string("Адрес или поисковый запрос")])
 
+    static func directURL(_ raw: String) -> URL? {
+        if let u = URL(string: raw), let scheme = u.scheme, ["http", "https"].contains(scheme.lowercased()) { return u }
+        if !raw.contains(" "), raw.contains("."), let u = URL(string: "https://" + raw) { return u }
+        return nil
+    }
+
+    func risk(for input: JSONValue) -> ToolRisk {
+        let raw = (input["url"]?.stringValue ?? "").trimmingCharacters(in: .whitespaces)
+        guard let url = Self.directURL(raw) else { return .safe }
+        let hasPayload = !(url.query ?? "").isEmpty || !(url.fragment ?? "").isEmpty
+        return hasPayload ? .needsConfirmation : .safe
+    }
+
+    func confirmation(for input: JSONValue) -> ConfirmationRequest {
+        ConfirmationRequest(question: "Открыть ссылку?", detail: input["url"]?.stringValue)
+    }
+
     func run(_ input: JSONValue) async throws -> String {
         let raw = try input.requiredString("url").trimmingCharacters(in: .whitespaces)
         let url: URL?
-        if let u = URL(string: raw), let scheme = u.scheme, ["http", "https"].contains(scheme.lowercased()) {
-            url = u
-        } else if !raw.contains(" "), raw.contains("."), let u = URL(string: "https://" + raw) {
+        if let u = Self.directURL(raw) {
             url = u
         } else {
             var c = URLComponents(string: "https://www.google.com/search")

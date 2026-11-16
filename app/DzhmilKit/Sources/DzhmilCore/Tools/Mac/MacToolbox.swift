@@ -2,7 +2,7 @@ import Foundation
 
 public enum MacToolbox {
     public static func all(timers: TimerStore, screen: (any ScreenCapturer)? = nil,
-                           beforeCapture: @escaping @Sendable () async -> Void = {}) -> [any Tool] {
+                           beforeCapture: @escaping @Sendable () async -> Bool = { true }) -> [any Tool] {
         var tools: [any Tool] = [
             SystemStatusTool(),
             ListRunningAppsTool(),

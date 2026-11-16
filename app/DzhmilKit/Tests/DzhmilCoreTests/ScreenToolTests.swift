@@ -27,7 +27,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
 
 @Suite struct ScreenToolTests {
     func lookTool(_ capturer: FakeCapturer) -> any Tool {
-        MacToolbox.all(timers: TimerStore(), screen: capturer, beforeCapture: { capturer.note("hook") })
+        MacToolbox.all(timers: TimerStore(), screen: capturer, beforeCapture: { capturer.note("hook"); return true })
             .first { $0.name == "look_at_screen" }!
     }
 
@@ -60,6 +60,33 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
         #expect(capturer.log == ["hook", "capture:window", "capture:screen"])
         #expect(out.images.count == 1)
         #expect(out.text.hasPrefix("Скриншот экрана"))
+    }
+
+    @Test func refusedIndicatorPreventsCapture() async {
+        let capturer = FakeCapturer()
+        let tool = MacToolbox.all(timers: TimerStore(), screen: capturer, beforeCapture: { capturer.note("hook"); return false })
+            .first { $0.name == "look_at_screen" }!
+        do {
+            _ = try await tool.runRich(["target": "window"])
+            Issue.record("expected refusal")
+        } catch {
+            #expect(error.localizedDescription.contains("спрятан"))
+        }
+        #expect(capturer.log == ["hook"])
+    }
+
+    @Test func cancellationDuringIndicatorPreventsCapture() async throws {
+        let capturer = FakeCapturer()
+        let tool = MacToolbox.all(timers: TimerStore(), screen: capturer, beforeCapture: {
+            capturer.note("hook")
+            try? await Task.sleep(for: .milliseconds(300))
+            return true
+        }).first { $0.name == "look_at_screen" }!
+        let task = Task { try await tool.runRich(["target": "window"]) }
+        try await Task.sleep(for: .milliseconds(50))
+        task.cancel()
+        _ = try? await task.value
+        #expect(capturer.log == ["hook"])
     }
 
     @Test func schemaAndRisk() {

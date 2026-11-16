@@ -181,7 +181,9 @@ final class DroneLayerView: NSView {
         c.addSublayer(propeller(186, 44, 30, 18, 8))
 
         c.addSublayer(stroke([(150, 66), (166, 40)], 3))
-        led.path = CGPath(ellipseIn: CGRect(x: 161.5, y: 34.5, width: 9, height: 9), transform: nil)
+        led.bounds = CGRect(x: 0, y: 0, width: 9, height: 9)
+        led.position = CGPoint(x: 166, y: 39)
+        led.path = CGPath(ellipseIn: led.bounds, transform: nil)
         led.fillColor = DronePalette.uaYellow
         c.addSublayer(led)
 

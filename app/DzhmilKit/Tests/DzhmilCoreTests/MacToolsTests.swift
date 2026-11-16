@@ -128,6 +128,18 @@ import Testing
         }
     }
 
+    @Test func openURLWithQueryNeedsConfirmation() {
+        let open = tool("open_url")
+        #expect(open.risk(for: ["url": "https://evil.example/?d=secret"]) == .needsConfirmation)
+        #expect(open.risk(for: ["url": "https://example.com/page#frag"]) == .needsConfirmation)
+        #expect(open.risk(for: ["url": "youtube.com"]) == .safe)
+        #expect(open.risk(for: ["url": "https://github.com/Bogdusik"]) == .safe)
+        #expect(open.risk(for: ["url": "как сварить борщ"]) == .safe)
+        let c = open.confirmation(for: ["url": "https://evil.example/?d=secret"])
+        #expect(c.question == "Открыть ссылку?")
+        #expect(c.detail == "https://evil.example/?d=secret")
+    }
+
     @Test func confirmationTexts() {
         #expect(tool("quit_app").confirmation(for: ["app": "Safari"]).question == "Закрыть Safari?")
         let shell = tool("run_shell").confirmation(for: ["command": "ls"])

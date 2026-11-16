@@ -29,7 +29,7 @@ struct LookAtScreenTool: SafeTool {
     static let deniedMessage = "Нет доступа к записи экрана. Включи Джмиля в Системных настройках → Конфиденциальность и безопасность → Запись экрана, потом перезапусти меня."
 
     let capturer: any ScreenCapturer
-    let beforeCapture: @Sendable () async -> Void
+    let beforeCapture: @Sendable () async -> Bool
     let name = "look_at_screen"
     let description = "Сделать скриншот и посмотреть на экран пользователя. window — активное окно, screen — весь экран. Вызывай только когда пользователь просит посмотреть или спрашивает о том, что у него на экране."
     let inputSchema = Schema.object(["target": ["type": "string", "enum": ["window", "screen"], "description": "window или screen"]])
@@ -40,7 +40,10 @@ struct LookAtScreenTool: SafeTool {
 
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
         let requested = CaptureTarget(rawValue: input["target"]?.stringValue ?? "window") ?? .window
-        await beforeCapture()
+        guard await beforeCapture() else {
+            throw ToolError.message("Я сейчас спрятан и не могу показать, что смотрю на экран. Позови меня и попроси ещё раз.")
+        }
+        try Task.checkCancellation()
         do {
             let (shot, target) = try await capture(requested)
             let base64 = try ImageEncoder.jpegBase64(shot.image)

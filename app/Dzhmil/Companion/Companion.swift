@@ -31,13 +31,17 @@ final class Companion {
     private(set) lazy var conversation: Conversation = {
         let box = settingsBox
         let profile = profileStore
-        let beforeCapture: @Sendable () async -> Void = { [weak self] in
-            await MainActor.run {
-                guard let self else { return }
+        let beforeCapture: @Sendable () async -> Bool = { [weak self] in
+            let shown = await MainActor.run { () -> Bool in
+                guard let self, !self.director.isHidden else { return false }
+                self.director.revealForCapture()
                 self.model.play(.cameraFlash)
                 self.show(.text("Смотрю на экран…"))
+                return true
             }
+            guard shown else { return false }
             try? await Task.sleep(for: .milliseconds(400))
+            return true
         }
         let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture)
         return Conversation(client: client,
