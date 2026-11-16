@@ -77,6 +77,7 @@ final class Companion {
             show(nil)
         }
 
+        director.chattiness = { [weak self] in self?.settings.chattiness ?? .normal }
         director.start()
         applySettings()
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })

@@ -25,6 +25,16 @@ final class DroneDirector {
     private var lastMouse: (point: CGPoint, time: TimeInterval)?
     private var isFullscreen = false
     private var ticks = 0
+    private var idleAnimator = IdleAnimator()
+    private var nextGestureAt = Date().addingTimeInterval(10)
+    private var chasePolicy = ChasePolicy()
+    private var chaseUntil: Date?
+    private var chaseReturn: CGPoint?
+    private var lastChaseStep = Date.distantPast
+    private var lastCursorSpeed: Double = 0
+    private var startleCooldownUntil = Date.distantPast
+    private let chaseEarliest = Date().addingTimeInterval(300)
+    var chattiness: () -> Chattiness = { .normal }
     private(set) var isHidden = false
     private var hiddenEdge: ScreenEdge?
     private var lastVisibleCenter: CGPoint?
@@ -72,7 +82,9 @@ final class DroneDirector {
         for effect in effects {
             switch effect {
             case .flyToDock: flight.fly(to: dockSpot())
-            case .wakeUp: takeOff()
+            case .wakeUp:
+                takeOff()
+                model.play(.wiggle)
             default: rest.append(effect)
             }
         }
@@ -100,7 +112,7 @@ final class DroneDirector {
             flight.place(at: start)
             panel.orderFrontRegardless()
             nextWanderAt = Date().addingTimeInterval(.random(in: Self.wanderInterval))
-            cruise(to: target)
+            cruise(to: target) { [weak self] in self?.model.play(.wiggle) }
         }
     }
 
@@ -170,7 +182,8 @@ final class DroneDirector {
         }
 
         let now = Date()
-        if machine.canWander, !isHidden, now >= nextWanderAt, now >= dragLockUntil, model.bubble == nil, dragStart == nil, !flight.isMoving {
+        lifeGestures(now)
+        if chaseUntil == nil, machine.canWander, !isHidden, now >= nextWanderAt, now >= dragLockUntil, model.bubble == nil, dragStart == nil, !flight.isMoving {
             nextWanderAt = now.addingTimeInterval(.random(in: Self.wanderInterval))
             let screen = ScreenEnvironment.currentScreen()
             var rng = SystemRandomNumberGenerator()
@@ -190,6 +203,9 @@ final class DroneDirector {
         let now = ProcessInfo.processInfo.systemUptime
         let speed = lastMouse.map { hypot(mouse.x - $0.point.x, mouse.y - $0.point.y) / max(0.001, now - $0.time) } ?? 0
         lastMouse = (mouse, now)
+        lastCursorSpeed = speed
+        updateEyes(mouse)
+        if chaseUntil != nil { updateChase(mouse) }
 
         let local = CGPoint(x: mouse.x - frame.minX, y: mouse.y - frame.minY)
         let shape = HitShape(droneRect: DronePanel.droneRect, bubbleRect: model.bubbleRect)
@@ -199,7 +215,14 @@ final class DroneDirector {
             if panel.ignoresMouseEvents != ignore { panel.ignoresMouseEvents = ignore }
         }
 
-        guard !overDrone, speed > Self.dodgeCursorSpeed, machine.canWander, model.bubble == nil, dragStart == nil,
+        if !overDrone, speed > Self.dodgeCursorSpeed, Date() >= startleCooldownUntil,
+           hypot(mouse.x - flight.droneCenter.x, mouse.y - flight.droneCenter.y) < 150,
+           machine.state == .hover || machine.state == .flying {
+            startleCooldownUntil = Date().addingTimeInterval(5)
+            model.play(.startle)
+        }
+
+        guard chaseUntil == nil, !overDrone, speed > Self.dodgeCursorSpeed, machine.canWander, model.bubble == nil, dragStart == nil,
               !flight.isMoving, Date() >= dodgeCooldownUntil, Date() >= dragLockUntil else { return }
         if let target = PerchPlanner.dodge(droneCenter: flight.droneCenter, cursor: mouse, screen: screenGeometry(), droneSize: DronePanel.droneSize) {
             dodgeCooldownUntil = Date().addingTimeInterval(5)
@@ -229,5 +252,59 @@ final class DroneDirector {
     private func reclamp() {
         let screen = screenGeometry()
         flight.place(at: PerchPlanner.clamp(flight.droneCenter, droneSize: DronePanel.droneSize, screen: screen))
+    }
+
+    private func lifeGestures(_ now: Date) {
+        if chaseUntil == nil, now >= chaseEarliest, lastCursorSpeed > 20, !flight.isMoving, dragStart == nil, model.bubble == nil,
+           chasePolicy.shouldChase(now: now, chattiness: chattiness(), cursorSpeed: lastCursorSpeed,
+                                   canWander: machine.canWander, bubbleVisible: model.bubble != nil) {
+            startChase(now)
+            return
+        }
+        guard machine.state == .hover, !machine.quiet, !machine.fullscreen, !flight.isMoving,
+              dragStart == nil, chaseUntil == nil, now >= nextGestureAt else { return }
+        var rng = SystemRandomNumberGenerator()
+        let gesture = idleAnimator.pick(now: now, hour: Calendar.current.component(.hour, from: now), using: &rng)
+        model.play(.idle(gesture))
+        nextGestureAt = now.addingTimeInterval(IdleAnimator.delay(using: &rng))
+    }
+
+    private func updateEyes(_ mouse: CGPoint) {
+        let offset = EyeTracker.offset(droneCenter: flight.droneCenter, cursor: mouse)
+        if abs(offset.dx - model.eyeOffset.dx) > 0.1 || abs(offset.dy - model.eyeOffset.dy) > 0.1 {
+            model.eyeOffset = offset
+        }
+    }
+
+    private func startChase(_ now: Date) {
+        chaseReturn = flight.droneCenter
+        chaseUntil = now.addingTimeInterval(4)
+        lastChaseStep = .distantPast
+        send(.wanderStarted)
+    }
+
+    private func updateChase(_ mouse: CGPoint) {
+        guard let until = chaseUntil else { return }
+        let aborted = isHidden || dragStart != nil || model.bubble != nil || machine.state != .flying
+        if aborted || Date() >= until {
+            endChase(returnHome: !aborted || machine.state == .flying)
+            return
+        }
+        guard Date().timeIntervalSince(lastChaseStep) >= 0.3 else { return }
+        lastChaseStep = Date()
+        let target = PerchPlanner.clamp(CGPoint(x: mouse.x + 120, y: mouse.y + 80), droneSize: DronePanel.droneSize, screen: screenGeometry())
+        flight.fly(to: target)
+    }
+
+    private func endChase(returnHome: Bool) {
+        chaseUntil = nil
+        guard returnHome, let home = chaseReturn, machine.state == .flying else {
+            chaseReturn = nil
+            return
+        }
+        chaseReturn = nil
+        flight.fly(to: PerchPlanner.clamp(home, droneSize: DronePanel.droneSize, screen: screenGeometry())) { [weak self] in
+            self?.send(.arrived)
+        }
     }
 }
