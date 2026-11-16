@@ -42,8 +42,8 @@ public actor ToolExecutor {
             }
         }
         do {
-            let output = try await tool.run(use.input)
-            return ToolOutcome(content: ToolOutput.limit(output), isError: false, ran: true)
+            let output = try await tool.runRich(use.input)
+            return ToolOutcome(content: ToolOutput.limit(output.text), isError: false, ran: true, images: output.images)
         } catch {
             return ToolOutcome(content: ToolOutput.limit(error.localizedDescription), isError: true, ran: true)
         }

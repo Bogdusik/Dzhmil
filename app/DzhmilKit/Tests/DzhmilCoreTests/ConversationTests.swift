@@ -129,6 +129,18 @@ enum Fixtures {
         #expect(client.requests.count == 2)
     }
 
+    @Test func imageToolResultBuildsBlocks() async {
+        let (conv, _) = make([Fixtures.toolCall([("toolu_9", "look", [:])]), Fixtures.text("Вижу Safari.")], tools: [PictureTool()])
+        _ = await collect(await conv.send("глянь"))
+        let history = await conv.history
+        let result = history[2]["content"]?.arrayValue?.first
+        #expect(result?["tool_use_id"] == "toolu_9")
+        #expect(result?["content"] == [
+            ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": "AAAA"]],
+            ["type": "text", "text": "Скриншот"],
+        ])
+    }
+
     @Test func parallelToolResultsInOneMessage() async {
         let (conv, _) = make([Fixtures.toolCall([("a", "open_app", ["x": "1"]), ("b", "open_app", ["x": "2"])]), Fixtures.text("Готово.")])
         _ = await collect(await conv.send("открой два"))

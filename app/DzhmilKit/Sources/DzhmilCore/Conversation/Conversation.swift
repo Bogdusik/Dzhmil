@@ -189,7 +189,7 @@ public actor Conversation {
                 var result: [String: JSONValue] = [
                     "type": "tool_result",
                     "tool_use_id": .string(use.id),
-                    "content": .string(outcome.content),
+                    "content": Self.resultContent(outcome),
                 ]
                 if outcome.isError { result["is_error"] = true }
                 results.append(.object(result))
@@ -201,5 +201,14 @@ public actor Conversation {
         currentTask = nil
         continuation.yield(.sentence(Self.lostMessage))
         continuation.yield(.finished(text: Self.lostMessage, didAct: didAct))
+    }
+
+    static func resultContent(_ outcome: ToolOutcome) -> JSONValue {
+        guard !outcome.images.isEmpty else { return .string(outcome.content) }
+        var blocks: [JSONValue] = outcome.images.map {
+            ["type": "image", "source": ["type": "base64", "media_type": .string($0.mediaType), "data": .string($0.base64)]]
+        }
+        blocks.append(["type": "text", "text": .string(outcome.content)])
+        return .array(blocks)
     }
 }

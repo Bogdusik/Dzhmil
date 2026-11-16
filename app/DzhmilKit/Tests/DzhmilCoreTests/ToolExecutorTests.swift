@@ -25,6 +25,18 @@ struct RecordingTool: Tool {
     }
 }
 
+struct PictureTool: Tool {
+    let name = "look"
+    let description = "picture tool"
+    let inputSchema: JSONValue = ["type": "object", "properties": [:], "required": []]
+    func risk(for input: JSONValue) -> ToolRisk { .safe }
+    func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "", detail: nil) }
+    func run(_ input: JSONValue) async throws -> String { "unused" }
+    func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
+        ToolRichOutput(text: "Скриншот", images: [ToolImage(mediaType: "image/jpeg", base64: "AAAA")])
+    }
+}
+
 struct ScriptedConfirmer: ConfirmationProvider {
     enum Mode: Sendable { case yes, no, never }
     let mode: Mode
@@ -104,6 +116,18 @@ struct ScriptedConfirmer: ConfirmationProvider {
         let tool = RecordingTool(name: "loud", output: String(repeating: "a", count: 10_000))
         let outcome = await ToolExecutor(tools: [tool], confirmer: ScriptedConfirmer(mode: .yes)).execute(use("loud"))
         #expect(outcome.content.count <= 4100)
+    }
+
+    @Test func imageToolReturnsImages() async {
+        let outcome = await ToolExecutor(tools: [PictureTool()], confirmer: ScriptedConfirmer(mode: .yes)).execute(ToolUse(id: "t", name: "look", input: [:]))
+        #expect(outcome.content == "Скриншот")
+        #expect(outcome.images == [ToolImage(mediaType: "image/jpeg", base64: "AAAA")])
+        #expect(outcome.ran && !outcome.isError)
+    }
+
+    @Test func plainToolHasNoImages() async {
+        let outcome = await ToolExecutor(tools: [RecordingTool(name: "safe")], confirmer: ScriptedConfirmer(mode: .yes)).execute(use("safe"))
+        #expect(outcome.images.isEmpty)
     }
 
     @Test func limitTruncates() {
