@@ -6,12 +6,25 @@ import DzhmilCore
 struct StateGalleryView: View {
     @State private var state: DroneState = .hover
     @State private var bank: Double = 0
+    @State private var bubble: Bubble?
+    @State private var speaker = Speaker()
+
+    static let samples: [(String, Bubble)] = [
+        ("Текст", .text("Привет, Богдан! Как дела? Заряд 87%, всё хорошо.")),
+        ("Вопрос", .question("Ты уже два часа за компьютером. Может, перерыв?")),
+        ("Подтверждение", .confirm(ConfirmationRequest(question: "Выполнить команду в терминале?", detail: "ls -la ~/Desktop/PROJECTS | head -20"))),
+        ("Ввод", .input),
+        ("Ключ", .onboardingKey("Привет! Я Джміль. Чтобы думать, мне нужен ключ API из Claude Console. Вставь его сюда.")),
+    ]
 
     var body: some View {
-        VStack(spacing: 24) {
-            DroneView(state: state, bankDegrees: bank)
-                .frame(width: 320, height: 220)
-                .background(LinearGradient(colors: [Color(hex: 0xCFE7F2), Color(hex: 0xE9F4EC)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14))
+        VStack(spacing: 18) {
+            VStack(spacing: 4) {
+                if let bubble { BubbleView(bubble: bubble, onAnswer: { _ in self.bubble = nil }, onSubmit: { _ in self.bubble = nil }, onReply: { self.bubble = nil }, onLater: { self.bubble = nil }, onCancel: { self.bubble = nil }) }
+                DroneView(state: state, bankDegrees: bank)
+            }
+            .frame(width: 340, height: 320, alignment: .bottom)
+            .background(LinearGradient(colors: [Color(hex: 0xCFE7F2), Color(hex: 0xE9F4EC)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14))
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 8) {
                 ForEach(DroneState.allCases, id: \.self) { s in
                     Button(s.rawValue) { state = s }
@@ -23,9 +36,22 @@ struct StateGalleryView: View {
                 Text("Крен")
                 Slider(value: $bank, in: -14...14)
             }
+            HStack {
+                ForEach(Self.samples, id: \.0) { item in
+                    Button(item.0) { bubble = item.1 }
+                }
+                Button("Без облачка") { bubble = nil }
+            }
+            .buttonStyle(.bordered)
+            HStack {
+                Button("Сказать ru") { speaker.enqueue("Привет! Я Джміль, твой дрон. Как дела?") }
+                Button("Сказать uk") { speaker.enqueue("Привіт! Я Джміль. Як справи?") }
+                Button("Сказать en") { speaker.enqueue("Hi! I am Джміль, your little drone.") }
+            }
+            .buttonStyle(.bordered)
         }
         .padding(24)
-        .frame(width: 400)
+        .frame(width: 560)
     }
 }
 
@@ -40,6 +66,14 @@ enum StateGallery {
             if let img = view.renderImage(), let tiff = img.tiffRepresentation,
                let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
                 try? png.write(to: directory.appendingPathComponent("\(s.rawValue).png"))
+            }
+        }
+        for (i, item) in StateGalleryView.samples.enumerated() {
+            let r = ImageRenderer(content: BubbleView(bubble: item.1).padding(12).background(Color(hex: 0xE9F4EC)))
+            r.scale = 2
+            if let img = r.nsImage, let tiff = img.tiffRepresentation,
+               let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                try? png.write(to: directory.appendingPathComponent("bubble-\(i).png"))
             }
         }
     }
