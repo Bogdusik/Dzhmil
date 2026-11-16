@@ -8,6 +8,8 @@ public struct ProcessResult: Equatable, Sendable {
 }
 
 public enum ProcessRunner {
+    public static let outputCap = 1_048_576
+
     public static func run(_ executable: String, _ args: [String], timeout: Duration = .seconds(30)) async -> ProcessResult {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -28,8 +30,8 @@ public enum ProcessRunner {
                 if chunk.isEmpty {
                     closed = true
                     done.signal()
-                } else {
-                    data.append(chunk)
+                } else if data.count < ProcessRunner.outputCap {
+                    data.append(chunk.prefix(ProcessRunner.outputCap - data.count))
                 }
             }
         }

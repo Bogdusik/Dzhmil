@@ -82,6 +82,20 @@ struct SeededRNG: RandomNumberGenerator {
         #expect(p.y == 80 + size.height / 2)
     }
 
+    @Test func bubbleSafeCenterKeepsPanelOnScreen() {
+        let s = screen(visible: CGRect(x: 0, y: 80, width: 1440, height: 795))
+        let panel = CGSize(width: 340, height: 320)
+        let offset = CGPoint(x: 170, y: 82.5)
+        let left = PerchPlanner.bubbleSafeCenter(CGPoint(x: 80, y: 300), panelSize: panel, droneOffset: offset, screen: s)
+        #expect(left.x == 170)
+        let right = PerchPlanner.bubbleSafeCenter(CGPoint(x: 1400, y: 300), panelSize: panel, droneOffset: offset, screen: s)
+        #expect(right.x == 1270)
+        let top = PerchPlanner.bubbleSafeCenter(CGPoint(x: 700, y: 860), panelSize: panel, droneOffset: offset, screen: s)
+        #expect(top.y == 875 - 320 + 82.5)
+        let fine = CGPoint(x: 700, y: 300)
+        #expect(PerchPlanner.bubbleSafeCenter(fine, panelSize: panel, droneOffset: offset, screen: s) == fine)
+    }
+
     @Test func dodgeOnlyWhenCursorClose() {
         let s = screen(visible: CGRect(x: 0, y: 80, width: 1440, height: 795))
         let drone = CGPoint(x: 700, y: 500)

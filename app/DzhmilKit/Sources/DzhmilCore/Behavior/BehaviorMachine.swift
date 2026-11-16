@@ -1,6 +1,6 @@
 public enum BehaviorEvent: Equatable, Sendable {
     case wanderStarted, arrived
-    case pttDown, pttUp, transcriptReady, transcriptEmpty
+    case pttDown, pttUp, transcriptReady, transcriptEmpty, textSubmitted
     case replyStarted, replyFinished(didAct: Bool)
     case confirmationRequested, confirmationResolved
     case failed, animationDone
@@ -34,8 +34,9 @@ public struct BehaviorMachine: Sendable {
             guard state != .listening else { return [] }
             var effects: [BehaviorEffect] = []
             if state == .sleeping { effects.append(.wakeUp) }
+            effects.append(.stopSpeech)
             if !pendingConfirmation, state == .speaking || state == .thinking {
-                effects += [.stopSpeech, .cancelConversation]
+                effects.append(.cancelConversation)
             }
             effects.append(.startRecording)
             state = .listening
@@ -48,6 +49,15 @@ public struct BehaviorMachine: Sendable {
 
         case .transcriptReady:
             return []
+
+        case .textSubmitted:
+            guard !pendingConfirmation, state != .listening else { return [] }
+            var effects: [BehaviorEffect] = []
+            if state == .sleeping { effects.append(.wakeUp) }
+            effects.append(.stopSpeech)
+            if state == .speaking || state == .thinking { effects.append(.cancelConversation) }
+            state = .thinking
+            return effects
 
         case .transcriptEmpty:
             guard state == .thinking || state == .listening else { return [] }

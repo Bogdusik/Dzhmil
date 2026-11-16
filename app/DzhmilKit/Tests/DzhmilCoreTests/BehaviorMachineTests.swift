@@ -14,7 +14,7 @@ import Testing
 
     @Test func pttFromHoverStartsListening() {
         var m = BehaviorMachine()
-        #expect(m.handle(.pttDown) == [.startRecording])
+        #expect(m.handle(.pttDown) == [.stopSpeech, .startRecording])
         #expect(m.state == .listening)
     }
 
@@ -36,6 +36,25 @@ import Testing
         #expect(m.state == .sleeping)
         #expect(m.handle(.pttDown).contains(.wakeUp))
         #expect(m.state == .listening)
+    }
+
+    @Test func textSubmittedThinksWithoutMicrophone() {
+        var m = BehaviorMachine()
+        let effects = m.handle(.textSubmitted)
+        #expect(m.state == .thinking)
+        #expect(effects == [.stopSpeech])
+        #expect(!effects.contains(.startRecording))
+
+        var busy = machine(.pttDown, .pttUp, .replyStarted)
+        #expect(busy.handle(.textSubmitted) == [.stopSpeech, .cancelConversation])
+        #expect(busy.state == .thinking)
+
+        var sleeper = machine(.userIdle)
+        #expect(sleeper.handle(.textSubmitted).contains(.wakeUp))
+
+        var confirming = machine(.pttDown, .pttUp, .confirmationRequested)
+        #expect(confirming.handle(.textSubmitted) == [])
+        #expect(confirming.state == .confirming)
     }
 
     @Test func releaseStartsThinking() {
@@ -71,7 +90,7 @@ import Testing
         let effects = m.handle(.pttDown)
         #expect(m.state == .listening)
         #expect(!effects.contains(.cancelConversation))
-        #expect(!effects.contains(.stopSpeech))
+        #expect(effects.contains(.stopSpeech))
 
         _ = m.handle(.pttUp)
         _ = m.handle(.transcriptEmpty)

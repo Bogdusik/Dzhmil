@@ -84,6 +84,14 @@ import Testing
         }
     }
 
+    @Test func streamWithoutStopReasonIsIncomplete() throws {
+        var a = StreamAccumulator()
+        for e in [start, blockStart(0, #"{"type":"text","text":""}"#), delta(0, #"{"type":"text_delta","text":"Пол"}"#)] {
+            _ = try a.consume(e)
+        }
+        #expect(throws: ClaudeError.incomplete) { try a.finish() }
+    }
+
     @Test func pingIsIgnored() throws {
         var a = StreamAccumulator()
         #expect(try a.consume(SSEEvent(event: "ping", data: #"{"type":"ping"}"#)) == nil)

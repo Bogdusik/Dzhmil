@@ -41,6 +41,10 @@ final class DroneDirector {
             hum.setIntensity(speed / FlightModel.maxSpeed)
         }
         model.onDrag = { [weak self] phase in self?.handleDrag(phase) }
+        flight.onInterrupted = { [weak self] in
+            guard let self, machine.state == .flying else { return }
+            send(.arrived)
+        }
 
         let dock = PerchPlanner.dockSpot(screen: ScreenEnvironment.currentScreen(), droneSize: DronePanel.droneSize)
         flight.place(at: dock)
@@ -83,11 +87,10 @@ final class DroneDirector {
     }
 
     func ensureBubbleFits() {
-        let screen = ScreenEnvironment.geometry(for: ScreenEnvironment.screen(containing: flight.droneCenter))
-        let panelTop = flight.droneCenter.y - DronePanel.droneCenterOffset.y + DronePanel.size.height
-        let overflow = panelTop - screen.visibleFrame.maxY
-        guard overflow > 0 else { return }
-        flight.fly(to: CGPoint(x: flight.droneCenter.x, y: flight.droneCenter.y - overflow))
+        let center = flight.isMoving ? flight.target : flight.droneCenter
+        let safe = PerchPlanner.bubbleSafeCenter(center, panelSize: DronePanel.size, droneOffset: DronePanel.droneCenterOffset, screen: screenGeometry())
+        guard safe != center else { return }
+        flight.fly(to: safe)
     }
 
     private func dockSpot() -> CGPoint {
@@ -105,6 +108,7 @@ final class DroneDirector {
     }
 
     private func cruise(to point: CGPoint, then: (() -> Void)? = nil) {
+        flight.interrupt()
         if machine.canWander {
             send(.wanderStarted)
             flight.fly(to: point) { [weak self] in

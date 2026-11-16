@@ -62,7 +62,7 @@ Measured on an M1 Pro (Release build):
 | | |
 |---|---|
 | CPU while hovering | 0.3% |
-| Memory with Whisper loaded | 85 MB |
+| Memory with Whisper loaded | 81 MB steady; about 760 MB peak for ~10 s while the model loads at launch |
 | Speech recognition, 5.6 s phrase (warm) | 1.1 s |
 | Whisper model load from disk | 7.6 s, in the background at launch |
 

@@ -19,6 +19,63 @@ import Testing
     }
 }
 
+@Suite struct HallucinationTests {
+    @Test(arguments: ["you", "Подписывайтесь на канал!", "Всем пока!"])
+    func dropsWholeUtteranceHallucinations(_ raw: String) {
+        #expect(TranscriptFilter.clean(raw) == nil)
+    }
+
+    @Test func keepsShortThanks() {
+        #expect(TranscriptFilter.clean("Спасибо!") == "Спасибо!")
+    }
+}
+
+@Suite struct AudioLevelTests {
+    func tone(_ seconds: Double, amplitude: Float) -> [Float] {
+        (0..<Int(seconds * 16_000)).map { sin(Float($0) * 0.07) * amplitude }
+    }
+
+    @Test func silenceIsNotSpeech() {
+        #expect(!AudioLevel.hasSpeech([Float](repeating: 0, count: 16_000)))
+        #expect(!AudioLevel.hasSpeech((0..<16_000).map { _ in Float.random(in: -0.002...0.002) }))
+    }
+
+    @Test func voiceLevelIsSpeech() {
+        #expect(AudioLevel.hasSpeech([Float](repeating: 0, count: 8_000) + tone(0.5, amplitude: 0.1)))
+    }
+
+    @Test func shortBurstIsNotSpeech() {
+        #expect(!AudioLevel.hasSpeech([Float](repeating: 0, count: 16_000) + tone(0.05, amplitude: 0.1)))
+    }
+}
+
+@Suite struct ConfirmationGateTests {
+    let t0 = Date(timeIntervalSince1970: 1_000)
+
+    @Test func lateAnswerCannotResolveNextRequest() {
+        var g = ConfirmationGate()
+        let first = g.begin(at: t0)
+        #expect(g.currentID == first)
+        let second = g.begin(at: t0.addingTimeInterval(20))
+        let staleAccepted = g.resolve(id: first)
+        #expect(!staleAccepted)
+        #expect(g.currentID == second)
+        let currentAccepted = g.resolve(id: second)
+        #expect(currentAccepted)
+        #expect(g.currentID == nil)
+        let repeatAccepted = g.resolve(id: second)
+        let nilAccepted = g.resolve(id: nil)
+        #expect(!repeatAccepted && !nilAccepted)
+    }
+
+    @Test func clicksRightAfterShowingAreIgnored() {
+        var g = ConfirmationGate()
+        _ = g.begin(at: t0)
+        #expect(!g.acceptsClick(at: t0.addingTimeInterval(0.2)))
+        #expect(g.acceptsClick(at: t0.addingTimeInterval(0.5)))
+    }
+}
+
 @Suite struct PushToTalkGateTests {
     let t0 = Date(timeIntervalSince1970: 1_000_000)
 
@@ -49,12 +106,13 @@ import Testing
 }
 
 @Suite struct YesNoParserTests {
-    @Test(arguments: ["Да", "да, закрывай", "ага", "так", "yes", "давай", "конечно", "угу", "Да.", "так, роби"])
+    @Test(arguments: ["Да", "да, закрывай", "ага", "так", "yes", "давай", "конечно", "угу", "Да.", "так, роби", "да, давай"])
     func yes(_ s: String) { #expect(YesNoParser.parse(s) == true) }
 
     @Test(arguments: ["нет", "ні", "no", "не надо", "отмена", "стоп", "да нет, не надо", "Нет!", "не треба"])
     func no(_ s: String) { #expect(YesNoParser.parse(s) == false) }
 
-    @Test(arguments: ["может быть", "а что это", ""])
+    @Test(arguments: ["может быть", "а что это", "", "да подожди, что это за команда", "а что точно она делает", "так, а зачем",
+                      "А можно показать целиком?", "да, но сначала покажи, что внутри"])
     func unclear(_ s: String) { #expect(YesNoParser.parse(s) == nil) }
 }

@@ -28,7 +28,14 @@ final class DronePanel: NSPanel {
         ignoresMouseEvents = true
     }
 
+    var onResignKey: (() -> Void)?
+
     override var canBecomeKey: Bool { allowsKey }
+
+    override func resignKey() {
+        super.resignKey()
+        onResignKey?()
+    }
     override var canBecomeMain: Bool { false }
 
     func origin(forDroneCenter center: CGPoint) -> CGPoint {

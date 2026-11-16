@@ -1,5 +1,5 @@
 public enum ClaudeError: Error, Equatable, Sendable {
-    case missingKey, invalidKey, insufficientCredit, rateLimited, overloaded, network, refusal
+    case missingKey, invalidKey, insufficientCredit, rateLimited, overloaded, network, refusal, incomplete
     case api(status: Int, message: String)
 
     public var userMessage: String {
@@ -10,6 +10,7 @@ public enum ClaudeError: Error, Equatable, Sendable {
         case .rateLimited, .overloaded: "Мозг перегружен, попробуй через минуту."
         case .network: "Не могу связаться с мозгом, проверь интернет."
         case .refusal: "Об этом я говорить не буду."
+        case .incomplete: "Я сбился на полуслове. Повтори, пожалуйста."
         case .api(let status, _): "Что-то сломалось (код \(status))."
         }
     }

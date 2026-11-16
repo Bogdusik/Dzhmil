@@ -4,41 +4,51 @@ import DzhmilCore
 @MainActor
 final class BubbleConfirmer: ConfirmationProvider {
     private weak var director: DroneDirector?
+    private var gate = ConfirmationGate()
     private var continuation: CheckedContinuation<Bool, Never>?
-    var onShow: (() -> Void)?
+    var showBubble: ((Bubble?) -> Void)?
 
     init(director: DroneDirector) {
         self.director = director
     }
 
-    var isWaiting: Bool { continuation != nil }
+    var currentID: Int? { gate.currentID }
 
     func confirm(_ request: ConfirmationRequest) async -> Bool {
-        await withTaskCancellationHandler {
+        let id = gate.begin(at: Date())
+        return await withTaskCancellationHandler {
             await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
-                begin(request, c)
+                begin(request, id: id, c)
             }
         } onCancel: {
-            Task { @MainActor in self.resolve(false) }
+            Task { @MainActor in self.resolve(false, id: id) }
         }
     }
 
-    private func begin(_ request: ConfirmationRequest, _ c: CheckedContinuation<Bool, Never>) {
+    private func begin(_ request: ConfirmationRequest, id: Int, _ c: CheckedContinuation<Bool, Never>) {
+        guard gate.currentID == id else {
+            c.resume(returning: false)
+            return
+        }
         if let old = continuation {
             continuation = nil
             old.resume(returning: false)
         }
         continuation = c
         director?.send(.confirmationRequested)
-        director?.model.bubble = .confirm(request)
+        showBubble?(.confirm(request))
         NSSound(named: "Tink")?.play()
-        onShow?()
     }
 
-    func resolve(_ yes: Bool) {
-        guard let c = continuation else { return }
+    func answerFromButton(_ yes: Bool) {
+        guard gate.acceptsClick(at: Date()) else { return }
+        resolve(yes, id: gate.currentID)
+    }
+
+    func resolve(_ yes: Bool, id: Int?) {
+        guard gate.resolve(id: id), let c = continuation else { return }
         continuation = nil
-        if case .confirm? = director?.model.bubble { director?.model.bubble = nil }
+        if case .confirm? = director?.model.bubble { showBubble?(nil) }
         director?.send(.confirmationResolved)
         c.resume(returning: yes)
     }

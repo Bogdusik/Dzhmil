@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import DzhmilCore
 
@@ -16,6 +17,7 @@ final class SettingsBox: @unchecked Sendable {
 final class Companion {
     static let bubbleLinger: Duration = .seconds(6)
     static let pressDelay: Duration = .milliseconds(250)
+    static let downloadNotice = "Скачиваю слух, это один раз и займёт несколько минут…"
 
     let director = DroneDirector()
     let keychain = KeychainStore()
@@ -35,15 +37,18 @@ final class Companion {
                             settings: { box.current.conversation },
                             profile: { profile.load() })
     }()
-
     private(set) lazy var proactive = ProactiveDriver(companion: self)
+
     private let recorder = AudioRecorder()
     private var gate = PushToTalkGate()
     private var turnTask: Task<Void, Never>?
+    private var pendingCancel: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
     private var pressTask: Task<Void, Never>?
     private var pressStartedPTT = false
     private var autoStopTimer: Timer?
+    private var utteranceGeneration = 0
+    private var answeringConfirmation: Int?
 
     var onboardingSubmit: ((String) -> Void)?
 
@@ -59,23 +64,10 @@ final class Companion {
     var model: CompanionViewModel { director.model }
     var isListening: Bool { gate.isDown }
 
-    func checkKey() async -> String? {
-        let request = MessagesRequest(model: settings.model, system: "Ответь одним словом.",
-                                      messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512)
-        do {
-            for try await _ in client.stream(request) {}
-            return nil
-        } catch let error as ClaudeError {
-            return error.userMessage
-        } catch {
-            return ClaudeError.network.userMessage
-        }
-    }
-
     func start() {
         model.bubbleContent = { [weak self] bubble in
             AnyView(BubbleView(bubble: bubble,
-                               onAnswer: { self?.confirmer.resolve($0) },
+                               onAnswer: { self?.confirmer.answerFromButton($0) },
                                onSubmit: { self?.submit($0, from: bubble) },
                                onReply: { self?.replyToQuestion() },
                                onLater: { self?.closeBubble() },
@@ -84,7 +76,11 @@ final class Companion {
         model.onDoubleClick = { [weak self] in self?.openTextInput() }
         model.onPressBegan = { [weak self] in self?.pressBegan() }
         model.onPressEnded = { [weak self] in self?.pressEnded() }
-        confirmer.onShow = { [weak self] in self?.bubbleShown() }
+        confirmer.showBubble = { [weak self] in self?.show($0) }
+        director.panel.onResignKey = { [weak self] in
+            guard let self, case .input? = model.bubble else { return }
+            show(nil)
+        }
 
         director.start()
         applySettings()
@@ -98,6 +94,41 @@ final class Companion {
         speaker.enabled = s.voiceEnabled
         speaker.volume = Float(s.voiceVolume)
         director.hum.enabled = s.propellerSound
+    }
+
+    func checkKey() async -> String? {
+        let request = MessagesRequest(model: settings.model, system: "Ответь одним словом.",
+                                      messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512)
+        do {
+            for try await _ in client.stream(request) {}
+            return nil
+        } catch let error as ClaudeError {
+            return error.userMessage
+        } catch {
+            return ClaudeError.network.userMessage
+        }
+    }
+
+    func profileChanged() {
+        let conversation = self.conversation
+        Task { await conversation.resetSession() }
+    }
+
+    func show(_ bubble: Bubble?) {
+        hideTask?.cancel()
+        model.bubble = bubble
+        let panel = director.panel
+        switch bubble {
+        case .input?, .onboardingKey?:
+            panel.allowsKey = true
+            panel.makeKey()
+        default:
+            if panel.allowsKey || panel.isKeyWindow {
+                panel.allowsKey = false
+                panel.resignKey()
+            }
+        }
+        if bubble != nil { director.ensureBubbleFits() }
     }
 
     func pttDown() {
@@ -119,10 +150,12 @@ final class Companion {
             break
         }
 
-        hideTask?.cancel()
-        if !director.machine.pendingConfirmation { model.bubble = nil }
-        perform(director.send(.pttDown))
+        utteranceGeneration += 1
+        answeringConfirmation = director.machine.pendingConfirmation ? confirmer.currentID : nil
+        if answeringConfirmation == nil { show(nil) }
         gate.down(at: Date())
+        perform(director.send(.pttDown))
+        guard gate.isDown else { return }
         autoStopTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.gate.shouldAutoStop(now: Date()) else { return }
@@ -138,45 +171,56 @@ final class Companion {
         let outcome = gate.up(at: Date())
         let samples = recorder.isRecording ? recorder.stop() : []
         _ = director.send(.pttUp)
-        guard outcome == .accept, !samples.isEmpty else {
+        guard outcome == .accept, AudioLevel.hasSpeech(samples) else {
             transcriptMissing()
             return
         }
-        if !Transcriber.isModelDownloaded {
-            model.bubble = .text("Скачиваю слух, это один раз и займёт несколько минут…")
-            bubbleShown()
-        }
+        let generation = utteranceGeneration
+        let confirmID = answeringConfirmation
+        if !Transcriber.isModelDownloaded, confirmID == nil { show(.text(Self.downloadNotice)) }
         Task {
-            let raw = (try? await transcriber.transcribe(samples)) ?? ""
-            if case .text(let t)? = model.bubble, t.hasPrefix("Скачиваю слух") { model.bubble = nil }
+            let raw: String
+            do {
+                raw = try await transcriber.transcribe(samples)
+            } catch {
+                guard generation == utteranceGeneration else { return }
+                _ = director.send(.failed)
+                say("Не получилось распознать речь. В первый раз мне нужен интернет, чтобы скачать модель.")
+                finishAnimation()
+                return
+            }
+            guard generation == utteranceGeneration, !gate.isDown else { return }
+            if case .text(Self.downloadNotice)? = model.bubble { show(nil) }
             guard let text = TranscriptFilter.clean(raw) else {
                 transcriptMissing()
                 return
             }
-            handleUtterance(text)
+            handleUtterance(text, confirmID: confirmID)
         }
     }
 
     func submitText(_ text: String) {
-        if director.machine.pendingConfirmation, let yes = YesNoParser.parse(text) {
-            confirmer.resolve(yes)
+        if director.machine.pendingConfirmation {
+            if let yes = YesNoParser.parse(text) {
+                confirmer.resolve(yes, id: confirmer.currentID)
+            } else {
+                speaker.enqueue("Ответь «да» или «нет».")
+            }
             return
         }
-        perform(director.send(.pttDown))
-        perform(director.send(.pttUp))
+        utteranceGeneration += 1
+        perform(director.send(.textSubmitted))
         startTurn(text)
     }
 
     func say(_ text: String, asQuestion: Bool = false) {
-        hideTask?.cancel()
-        model.bubble = asQuestion ? .question(text) : .text(text)
-        bubbleShown()
+        show(asQuestion ? .question(text) : .text(text))
         speaker.enqueue(text)
         if asQuestion {
             hideTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(30))
                 guard !Task.isCancelled, let self, case .question? = model.bubble else { return }
-                model.bubble = nil
+                show(nil)
             }
         } else {
             speaker.finish { [weak self] in self?.scheduleHide() }
@@ -184,11 +228,12 @@ final class Companion {
     }
 
     func showOnboarding(_ message: String) {
-        hideTask?.cancel()
-        model.bubble = .onboardingKey(message)
-        director.panel.allowsKey = true
-        director.panel.makeKey()
-        bubbleShown()
+        show(.onboardingKey(message))
+    }
+
+    func openTextInput() {
+        guard !director.machine.pendingConfirmation else { return }
+        show(.input)
     }
 
     private func perform(_ effects: [BehaviorEffect]) {
@@ -200,7 +245,11 @@ final class Companion {
                 turnTask?.cancel()
                 turnTask = nil
                 let conversation = self.conversation
-                Task { await conversation.cancel() }
+                let previous = pendingCancel
+                pendingCancel = Task {
+                    await previous?.value
+                    await conversation.cancel()
+                }
             case .startRecording:
                 do {
                     try recorder.start()
@@ -222,14 +271,19 @@ final class Companion {
         _ = director.send(.transcriptEmpty)
     }
 
-    private func handleUtterance(_ text: String) {
-        if director.machine.pendingConfirmation {
+    private func handleUtterance(_ text: String, confirmID: Int?) {
+        if let confirmID {
+            guard confirmer.currentID == confirmID else { return }
             if let yes = YesNoParser.parse(text) {
-                confirmer.resolve(yes)
+                confirmer.resolve(yes, id: confirmID)
             } else {
                 _ = director.send(.transcriptEmpty)
                 speaker.enqueue("Скажи «да» или «нет».")
             }
+            return
+        }
+        if director.machine.pendingConfirmation {
+            _ = director.send(.transcriptEmpty)
             return
         }
         startTurn(text)
@@ -240,7 +294,9 @@ final class Companion {
         hideTask?.cancel()
         speaker.stop()
         let conversation = self.conversation
+        let cancelFirst = pendingCancel
         turnTask = Task { [weak self] in
+            await cancelFirst?.value
             let stream = await conversation.send(text)
             var reply = ""
             for await event in stream {
@@ -249,10 +305,7 @@ final class Companion {
                 case .sentence(let s):
                     if director.machine.state == .thinking { _ = director.send(.replyStarted) }
                     reply += reply.isEmpty ? s : " " + s
-                    if !director.machine.pendingConfirmation {
-                        model.bubble = .text(reply)
-                        bubbleShown()
-                    }
+                    if !director.machine.pendingConfirmation { show(.text(reply)) }
                     speaker.enqueue(s)
                 case .toolStarted, .toolFinished:
                     break
@@ -285,35 +338,17 @@ final class Companion {
         hideTask = Task { [weak self] in
             try? await Task.sleep(for: Self.bubbleLinger)
             guard !Task.isCancelled, let self, case .text? = model.bubble else { return }
-            model.bubble = nil
+            show(nil)
         }
     }
 
-    private func bubbleShown() {
-        director.ensureBubbleFits()
-    }
-
     private func closeBubble() {
-        hideTask?.cancel()
-        if case .confirm? = model.bubble { confirmer.resolve(false) }
-        model.bubble = nil
-        director.panel.allowsKey = false
-        director.panel.resignKey()
-    }
-
-    func openTextInput() {
-        guard !director.machine.pendingConfirmation else { return }
-        hideTask?.cancel()
-        model.bubble = .input
-        director.panel.allowsKey = true
-        director.panel.makeKey()
-        bubbleShown()
+        if case .confirm? = model.bubble { confirmer.resolve(false, id: confirmer.currentID) }
+        show(nil)
     }
 
     private func submit(_ text: String, from bubble: Bubble) {
-        director.panel.allowsKey = false
-        director.panel.resignKey()
-        model.bubble = nil
+        show(nil)
         if case .onboardingKey = bubble {
             onboardingSubmit?(text)
         } else {
@@ -322,7 +357,7 @@ final class Companion {
     }
 
     private func replyToQuestion() {
-        model.bubble = nil
+        show(nil)
         pttDown()
     }
 
@@ -357,5 +392,3 @@ enum AVAudioPermission {
         }
     }
 }
-
-import AVFoundation

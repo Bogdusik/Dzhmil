@@ -85,6 +85,14 @@ public enum PerchPlanner {
         return CGPoint(x: x, y: y)
     }
 
+    public static func bubbleSafeCenter(_ center: CGPoint, panelSize: CGSize, droneOffset: CGPoint, screen: ScreenGeometry) -> CGPoint {
+        let v = screen.visibleFrame
+        var origin = CGPoint(x: center.x - droneOffset.x, y: center.y - droneOffset.y)
+        origin.x = min(max(origin.x, v.minX), v.maxX - panelSize.width)
+        origin.y = min(origin.y, v.maxY - panelSize.height)
+        return CGPoint(x: origin.x + droneOffset.x, y: origin.y + droneOffset.y)
+    }
+
     public static func dodge(droneCenter: CGPoint, cursor: CGPoint, screen: ScreenGeometry, droneSize: CGSize) -> CGPoint? {
         let dx = droneCenter.x - cursor.x, dy = droneCenter.y - cursor.y
         guard hypot(dx, dy) < dodgeTrigger else { return nil }

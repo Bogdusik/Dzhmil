@@ -53,7 +53,7 @@ final class ProactiveDriver {
         }
 
         let machine = companion.director.machine
-        let busy = ![DroneState.hover, .flying, .sleeping].contains(machine.state) || companion.model.bubble != nil
+        let busy = isBusy
         let battery = SystemMetrics.battery()
         let context = ProactiveContext(now: now, calendar: .current, activeSince: activeSince, isUserActive: idle < Self.activeIdleLimit,
                                        batteryPercent: battery.percent, isCharging: battery.charging,
@@ -65,9 +65,23 @@ final class ProactiveDriver {
         await speak(trigger)
     }
 
+    private var isBusy: Bool {
+        let machine = companion.director.machine
+        return ![DroneState.hover, .flying, .sleeping].contains(machine.state) || companion.model.bubble != nil || companion.isListening
+    }
+
     private func speak(_ trigger: ProactiveTrigger) async {
-        let phrase = await PhraseWriter.write(trigger, client: companion.client, settings: companion.settings.conversation,
+        let phrase: String
+        if case .timer = trigger {
+            phrase = PhraseWriter.template(trigger)
+        } else {
+            phrase = await PhraseWriter.write(trigger, client: companion.client, settings: companion.settings.conversation,
                                               profile: companion.profileStore.load())
+        }
+        guard !isBusy, !companion.director.isHidden else {
+            if case .timer(let label) = trigger { await companion.timers.add(label: label, fireAt: Date()) }
+            return
+        }
         await companion.conversation.noteRemark(phrase)
         if trigger.isQuestion || companion.director.machine.state == .sleeping {
             _ = companion.director.send(.userActive)

@@ -43,13 +43,12 @@ enum ScreenEnvironment {
         guard let app = NSWorkspace.shared.frontmostApplication,
               app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return false }
         let pid = app.processIdentifier
-        let screens = NSScreen.screens.map(\.frame)
+        let screens = NSScreen.screens.map { FullscreenDetector.Screen(frame: $0.frame, topInset: $0.safeAreaInsets.top) }
         for w in windows() {
             guard (w[kCGWindowOwnerPID as String] as? Int32) == pid,
                   (w[kCGWindowLayer as String] as? Int) == 0,
                   let b = bounds(w) else { continue }
-            let r = Coordinates.cgToAppKit(b, primaryScreenHeight: primaryHeight)
-            if screens.contains(where: { abs($0.width - r.width) < 1 && abs($0.height - r.height) < 1 && abs($0.minX - r.minX) < 1 && abs($0.minY - r.minY) < 1 }) {
+            if FullscreenDetector.matches(Coordinates.cgToAppKit(b, primaryScreenHeight: primaryHeight), screens: screens) {
                 return true
             }
         }

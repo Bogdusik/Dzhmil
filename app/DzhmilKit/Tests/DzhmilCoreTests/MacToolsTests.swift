@@ -22,6 +22,14 @@ import Testing
         #expect(r.stdout.count == 300_000)
     }
 
+    @Test func hugeOutputIsCappedWhileDraining() async {
+        let r = await ProcessRunner.run("/bin/zsh", ["-c", "head -c 3000000 /dev/zero | tr '\\0' a"])
+        #expect(r.exitCode == 0)
+        #expect(!r.timedOut)
+        #expect(r.stdout.count <= ProcessRunner.outputCap + 65_536)
+        #expect(r.stdout.count >= ProcessRunner.outputCap)
+    }
+
     @Test func capturesStderrAndExitCode() async {
         let r = await ProcessRunner.run("/bin/zsh", ["-c", "echo oops >&2; exit 3"])
         #expect(r.stderr == "oops\n")

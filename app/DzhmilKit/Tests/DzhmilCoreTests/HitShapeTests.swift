@@ -20,6 +20,14 @@ import Testing
         #expect(!HitShape(droneRect: shape.droneRect, bubbleRect: nil).contains(CGPoint(x: 60, y: 200)))
     }
 
+    @Test func fullscreenOnNotchedDisplay() {
+        let screen = FullscreenDetector.Screen(frame: CGRect(x: 0, y: 0, width: 1728, height: 1117), topInset: 32)
+        #expect(FullscreenDetector.matches(CGRect(x: 0, y: 0, width: 1728, height: 1085), screens: [screen]))
+        #expect(FullscreenDetector.matches(CGRect(x: 0, y: 0, width: 1728, height: 1117), screens: [screen]))
+        #expect(!FullscreenDetector.matches(CGRect(x: 0, y: 0, width: 1728, height: 1084), screens: [screen]))
+        #expect(!FullscreenDetector.matches(CGRect(x: 100, y: 0, width: 900, height: 700), screens: [screen]))
+    }
+
     @Test func cgToAppKitFlipsY() {
         #expect(Coordinates.cgToAppKit(CGRect(x: 0, y: 0, width: 100, height: 50), primaryScreenHeight: 1000) == CGRect(x: 0, y: 950, width: 100, height: 50))
     }

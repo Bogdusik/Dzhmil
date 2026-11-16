@@ -49,6 +49,7 @@ final class SettingsModel {
     func saveProfile() {
         do {
             try companion.profileStore.save(profile)
+            companion.profileChanged()
             profileStatus = "Сохранено."
         } catch {
             profileStatus = "Не получилось сохранить."

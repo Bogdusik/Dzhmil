@@ -11,6 +11,7 @@ final class FlightController: NSObject {
     private var arrival: (() -> Void)?
 
     var onUpdate: ((_ bank: Double, _ speed: Double) -> Void)?
+    var onInterrupted: (() -> Void)?
 
     init(panel: DronePanel) {
         self.panel = panel
@@ -22,6 +23,12 @@ final class FlightController: NSObject {
     var target: CGPoint { model.target }
     var isMoving: Bool { link?.isPaused == false }
 
+    func interrupt() {
+        guard arrival != nil else { return }
+        arrival = nil
+        onInterrupted?()
+    }
+
     func place(at center: CGPoint) {
         stop()
         model = FlightModel(position: center)
@@ -30,6 +37,7 @@ final class FlightController: NSObject {
     }
 
     func fly(to center: CGPoint, completion: (() -> Void)? = nil) {
+        interrupt()
         arrival = completion
         model.target = center
         if link == nil, let view = panel.contentView {
@@ -44,7 +52,7 @@ final class FlightController: NSObject {
     func stop() {
         link?.isPaused = true
         lastTimestamp = nil
-        arrival = nil
+        interrupt()
         model.velocity = .zero
         model.target = model.position
     }

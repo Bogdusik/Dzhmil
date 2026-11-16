@@ -35,6 +35,7 @@ public actor Conversation {
     private var lastActivity: Date?
     private var pendingRemark: String?
     private var turnSnapshot: [JSONValue]?
+    private var sessionSystem: String?
     private var currentTask: Task<Void, Never>?
     private var generation = 0
 
@@ -59,9 +60,19 @@ public actor Conversation {
         guard turnSnapshot == nil else { return }
         let silent = lastActivity.map { now().timeIntervalSince($0) >= Self.staleAfter } ?? false
         if silent || history.count >= Self.maxMessages {
-            history = []
-            lastActivity = nil
+            clearSession()
         }
+    }
+
+    public func resetSession() {
+        cancel()
+        clearSession()
+    }
+
+    private func clearSession() {
+        history = []
+        lastActivity = nil
+        sessionSystem = nil
     }
 
     public func cancel() {
@@ -80,11 +91,13 @@ public actor Conversation {
         generation += 1
         let gen = generation
         turnSnapshot = history
+        let system = sessionSystem ?? PromptBuilder.system(profile: profile())
+        sessionSystem = system
         let content = PromptBuilder.userTurn(text, now: now(), timeZone: timeZone, remark: pendingRemark)
         pendingRemark = nil
         history.append(["role": "user", "content": .string(content)])
         lastActivity = now()
-        currentTask = Task { await self.runTurn(gen: gen, continuation: continuation) }
+        currentTask = Task { await self.runTurn(gen: gen, system: system, continuation: continuation) }
         return stream
     }
 
@@ -105,12 +118,11 @@ public actor Conversation {
         lastActivity = now()
     }
 
-    private func runTurn(gen: Int, continuation: AsyncStream<ConversationEvent>.Continuation) async {
+    private func runTurn(gen: Int, system: String, continuation: AsyncStream<ConversationEvent>.Continuation) async {
         defer { continuation.finish() }
         var splitter = SentenceSplitter()
         var fullText = ""
         var didAct = false
-        let system = PromptBuilder.system(profile: profile())
         let tools = executor.definitions
 
         for _ in 0..<Self.maxRounds {
@@ -131,7 +143,10 @@ public actor Conversation {
             } catch {
                 guard isCurrent(gen) else { return }
                 rollback(gen)
-                continuation.yield(.failed(error as? ClaudeError ?? .network))
+                let claudeError = error as? ClaudeError ?? .network
+                if case .api(let status, _) = claudeError, (400..<500).contains(status) { clearSession() }
+                currentTask = nil
+                continuation.yield(.failed(claudeError))
                 return
             }
             guard isCurrent(gen) else { return }
@@ -140,9 +155,21 @@ public actor Conversation {
                 continuation.yield(.failed(.network))
                 return
             }
+            let uses = message.toolUses
+            if message.content.isEmpty {
+                rollback(gen)
+                currentTask = nil
+                continuation.yield(.finished(text: fullText, didAct: didAct))
+                return
+            }
+            if message.stopReason != "tool_use", !uses.isEmpty {
+                rollback(gen)
+                currentTask = nil
+                continuation.yield(.failed(.incomplete))
+                return
+            }
             history.append(message.asHistoryEntry)
 
-            let uses = message.toolUses
             guard message.stopReason == "tool_use", !uses.isEmpty else {
                 if let rest = splitter.flush() { continuation.yield(.sentence(rest)) }
                 complete(gen)

@@ -45,6 +45,16 @@ final class FakeClaudeClient: ClaudeClient, @unchecked Sendable {
     }
 }
 
+final class ProfileBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: String
+    init(_ v: String) { _value = v }
+    var value: String {
+        get { lock.withLock { _value } }
+        set { lock.withLock { _value = newValue } }
+    }
+}
+
 final class TestClock: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Date
@@ -198,6 +208,46 @@ enum Fixtures {
         #expect(await conv.history.count == 60)
         await conv.resetIfStale()
         #expect(await conv.history.isEmpty)
+    }
+
+    @Test func emptyReplyAfterToolRollsBack() async {
+        let empty = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [], stopReason: "end_turn"))
+        let (conv, _) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), empty])
+        let events = await collect(await conv.send("открой"))
+        #expect(events.last == .finished(text: "", didAct: true))
+        #expect(await conv.history.isEmpty)
+    }
+
+    @Test func truncatedToolUseFails() async {
+        let truncated = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [["type": "tool_use", "id": "t", "name": "open_app", "input": ["x": "1"]]], stopReason: "max_tokens"))
+        let (conv, _) = make([truncated])
+        let events = await collect(await conv.send("открой"))
+        #expect(events == [.failed(.incomplete)])
+        #expect(await conv.history.isEmpty)
+    }
+
+    @Test func badRequestResetsSession() async {
+        let (conv, _) = make([Fixtures.text("Привет."), .fail(.api(status: 400, message: "bad"))])
+        _ = await collect(await conv.send("привет"))
+        #expect(await conv.history.count == 2)
+        let events = await collect(await conv.send("ещё"))
+        #expect(events == [.failed(.api(status: 400, message: "bad"))])
+        #expect(await conv.history.isEmpty)
+    }
+
+    @Test func systemIsFrozenWithinSession() async {
+        let client = FakeClaudeClient([Fixtures.text("Раз."), Fixtures.text("Два."), Fixtures.text("Три.")])
+        let profile = ProfileBox("Профиль А")
+        let conv = Conversation(client: client, executor: ToolExecutor(tools: [], confirmer: ScriptedConfirmer(mode: .yes)),
+                                settings: { ConversationSettings(model: "claude-opus-5-5", effort: "low") },
+                                profile: { profile.value })
+        _ = await collect(await conv.send("раз"))
+        profile.value = "Профиль Б"
+        _ = await collect(await conv.send("два"))
+        #expect(client.requests[1].system == client.requests[0].system)
+        await conv.resetSession()
+        _ = await collect(await conv.send("три"))
+        #expect(client.requests[2].system.contains("Профиль Б"))
     }
 
     @Test func systemAndToolsAreStableAcrossRounds() async throws {

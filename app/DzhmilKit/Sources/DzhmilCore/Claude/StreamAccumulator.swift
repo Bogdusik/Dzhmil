@@ -95,6 +95,7 @@ public struct StreamAccumulator: Sendable {
 
     public func finish() throws -> AssistantMessage {
         if stopReason == "refusal" { throw ClaudeError.refusal }
+        guard stopReason != nil else { throw ClaudeError.incomplete }
         let content = blocks.keys.sorted().compactMap { blocks[$0].map(JSONValue.object) }
         return AssistantMessage(content: content, stopReason: stopReason)
     }
