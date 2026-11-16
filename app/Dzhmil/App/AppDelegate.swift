@@ -13,6 +13,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
+        if let i = CommandLine.arguments.firstIndex(of: "--transcribe-test"), i + 1 < CommandLine.arguments.count {
+            let path = CommandLine.arguments[i + 1]
+            Task {
+                await DebugTools.transcribeTest(path: path)
+                NSApp.terminate(nil)
+            }
+            return
+        }
         #endif
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "fanblades", accessibilityDescription: "Джміль")
