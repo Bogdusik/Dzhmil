@@ -26,6 +26,8 @@ final class DroneDirector {
     private var isFullscreen = false
     private var ticks = 0
     private(set) var isHidden = false
+    private var hiddenEdge: ScreenEdge?
+    private var lastVisibleCenter: CGPoint?
 
     var idleOverride: TimeInterval?
 
@@ -78,8 +80,28 @@ final class DroneDirector {
     }
 
     func setHidden(_ hidden: Bool) {
+        guard hidden != isHidden else { return }
         isHidden = hidden
-        hidden ? panel.orderOut(nil) : panel.orderFrontRegardless()
+        let screen = screenGeometry()
+        if hidden {
+            let edge = ScreenEdge.allCases.randomElement() ?? .right
+            hiddenEdge = edge
+            lastVisibleCenter = flight.isMoving ? flight.target : flight.droneCenter
+            if machine.state == .sleeping { send(.userActive) }
+            let exit = PerchPlanner.exitPoint(from: flight.droneCenter, edge: edge, droneSize: DronePanel.droneSize, screen: screen)
+            panel.ignoresMouseEvents = true
+            cruise(to: exit) { [weak self] in
+                guard let self, isHidden else { return }
+                panel.orderOut(nil)
+            }
+        } else {
+            let target = PerchPlanner.clamp(lastVisibleCenter ?? flight.droneCenter, droneSize: DronePanel.droneSize, screen: screen)
+            let start = PerchPlanner.exitPoint(from: target, edge: hiddenEdge ?? .right, droneSize: DronePanel.droneSize, screen: screen)
+            flight.place(at: start)
+            panel.orderFrontRegardless()
+            nextWanderAt = Date().addingTimeInterval(.random(in: Self.wanderInterval))
+            cruise(to: target)
+        }
     }
 
     func setQuiet(_ quiet: Bool) {
@@ -121,6 +143,7 @@ final class DroneDirector {
     }
 
     private func lifeTick() {
+        guard !isHidden else { return }
         ticks += 1
         let sinceInput = ScreenEnvironment.secondsSinceUserInput()
         let hour = Calendar.current.component(.hour, from: Date())
@@ -158,6 +181,10 @@ final class DroneDirector {
     }
 
     private func hitTick() {
+        guard !isHidden else {
+            if !panel.ignoresMouseEvents { panel.ignoresMouseEvents = true }
+            return
+        }
         let mouse = NSEvent.mouseLocation
         let frame = panel.frame
         let now = ProcessInfo.processInfo.systemUptime

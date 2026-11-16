@@ -96,6 +96,28 @@ struct SeededRNG: RandomNumberGenerator {
         #expect(PerchPlanner.bubbleSafeCenter(fine, panelSize: panel, droneOffset: offset, screen: s) == fine)
     }
 
+    @Test(arguments: ScreenEdge.allCases)
+    func exitPointLeavesScreenCompletely(_ edge: ScreenEdge) {
+        let s = screen(visible: CGRect(x: 0, y: 80, width: 1440, height: 795))
+        let from = CGPoint(x: 500, y: 400)
+        let p = PerchPlanner.exitPoint(from: from, edge: edge, droneSize: size, screen: s)
+        let rect = CGRect(x: p.x - size.width / 2, y: p.y - size.height / 2, width: size.width, height: size.height)
+        #expect(!rect.intersects(frame))
+        switch edge {
+        case .left, .right: #expect(p.y == from.y)
+        case .top, .bottom: #expect(p.x == from.x)
+        }
+    }
+
+    @Test func exitPointUsesTheRequestedSide() {
+        let s = screen(visible: CGRect(x: 0, y: 80, width: 1440, height: 795))
+        let from = CGPoint(x: 500, y: 400)
+        #expect(PerchPlanner.exitPoint(from: from, edge: .left, droneSize: size, screen: s).x < 0)
+        #expect(PerchPlanner.exitPoint(from: from, edge: .right, droneSize: size, screen: s).x > 1440)
+        #expect(PerchPlanner.exitPoint(from: from, edge: .top, droneSize: size, screen: s).y > 900)
+        #expect(PerchPlanner.exitPoint(from: from, edge: .bottom, droneSize: size, screen: s).y < 0)
+    }
+
     @Test func dodgeOnlyWhenCursorClose() {
         let s = screen(visible: CGRect(x: 0, y: 80, width: 1440, height: 795))
         let drone = CGPoint(x: 700, y: 500)

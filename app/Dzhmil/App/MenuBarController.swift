@@ -47,12 +47,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func talk() {
-        if companion.director.isHidden { companion.director.setHidden(false) }
+        if companion.director.isHidden { companion.setHidden(false) }
         companion.isListening ? companion.pttUp() : companion.pttDown()
     }
 
     @objc private func write() {
-        if companion.director.isHidden { companion.director.setHidden(false) }
+        if companion.director.isHidden { companion.setHidden(false) }
         companion.openTextInput()
     }
 
@@ -61,7 +61,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleHidden() {
-        companion.director.setHidden(!companion.director.isHidden)
+        companion.setHidden(!companion.director.isHidden)
     }
 
     @objc private func openSettings() {

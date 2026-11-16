@@ -114,6 +114,16 @@ final class Companion {
         Task { await conversation.resetSession() }
     }
 
+    func setHidden(_ hidden: Bool) {
+        if hidden {
+            if gate.isDown { pttUp() }
+            if case .confirm? = model.bubble { confirmer.resolve(false, id: confirmer.currentID) }
+            speaker.stop()
+            show(nil)
+        }
+        director.setHidden(hidden)
+    }
+
     func show(_ bubble: Bubble?) {
         hideTask?.cancel()
         model.bubble = bubble

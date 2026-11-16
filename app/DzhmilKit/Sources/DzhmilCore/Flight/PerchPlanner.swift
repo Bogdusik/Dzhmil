@@ -11,6 +11,10 @@ public struct ScreenGeometry: Equatable, Sendable {
     }
 }
 
+public enum ScreenEdge: CaseIterable, Sendable {
+    case left, right, top, bottom
+}
+
 public enum PerchSpot: Equatable, Sendable {
     case air(CGPoint)
     case dock(CGPoint)
@@ -83,6 +87,17 @@ public enum PerchPlanner {
         let x = v.width >= droneSize.width ? min(max(center.x, v.minX + halfW), v.maxX - halfW) : v.midX
         let y = v.maxY - halfH >= minY ? min(max(center.y, minY), v.maxY - halfH) : v.midY
         return CGPoint(x: x, y: y)
+    }
+
+    public static func exitPoint(from center: CGPoint, edge: ScreenEdge, droneSize: CGSize, screen: ScreenGeometry) -> CGPoint {
+        let f = screen.frame
+        let beyond = max(droneSize.width, droneSize.height)
+        switch edge {
+        case .left: return CGPoint(x: f.minX - beyond, y: center.y)
+        case .right: return CGPoint(x: f.maxX + beyond, y: center.y)
+        case .top: return CGPoint(x: center.x, y: f.maxY + beyond)
+        case .bottom: return CGPoint(x: center.x, y: f.minY - beyond)
+        }
     }
 
     public static func bubbleSafeCenter(_ center: CGPoint, panelSize: CGSize, droneOffset: CGPoint, screen: ScreenGeometry) -> CGPoint {
