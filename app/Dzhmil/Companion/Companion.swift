@@ -31,8 +31,17 @@ final class Companion {
     private(set) lazy var conversation: Conversation = {
         let box = settingsBox
         let profile = profileStore
+        let beforeCapture: @Sendable () async -> Void = { [weak self] in
+            await MainActor.run {
+                guard let self else { return }
+                self.model.play(.cameraFlash)
+                self.show(.text("Смотрю на экран…"))
+            }
+            try? await Task.sleep(for: .milliseconds(400))
+        }
+        let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture)
         return Conversation(client: client,
-                            executor: ToolExecutor(tools: MacToolbox.all(timers: timers), confirmer: confirmer),
+                            executor: ToolExecutor(tools: tools, confirmer: confirmer),
                             settings: { box.current.conversation },
                             profile: { profile.load() })
     }()
