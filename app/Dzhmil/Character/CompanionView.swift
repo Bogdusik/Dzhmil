@@ -20,8 +20,6 @@ final class CompanionViewModel {
     var bubbleRect: CGRect?
 
     @ObservationIgnored var onDrag: ((DragPhase) -> Void)?
-    @ObservationIgnored var onPressBegan: (() -> Void)?
-    @ObservationIgnored var onPressEnded: (() -> Void)?
     @ObservationIgnored var onDoubleClick: (() -> Void)?
     @ObservationIgnored var bubbleContent: ((Bubble) -> AnyView)?
 }
@@ -60,10 +58,6 @@ struct CompanionView: View {
                         .onEnded { _ in model.onDrag?(.ended) }
                 )
                 .onTapGesture(count: 2) { model.onDoubleClick?() }
-                .onLongPressGesture(minimumDuration: 0.25, maximumDistance: 4) {
-                } onPressingChanged: { pressing in
-                    pressing ? model.onPressBegan?() : model.onPressEnded?()
-                }
                 .padding(.bottom, DronePanel.droneBottomMargin)
         }
         .frame(width: DronePanel.size.width, height: DronePanel.size.height)

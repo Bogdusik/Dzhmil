@@ -16,7 +16,6 @@ final class SettingsBox: @unchecked Sendable {
 @MainActor
 final class Companion {
     static let bubbleLinger: Duration = .seconds(6)
-    static let pressDelay: Duration = .milliseconds(250)
     static let downloadNotice = "Скачиваю слух, это один раз и займёт несколько минут…"
 
     let director = DroneDirector()
@@ -44,8 +43,6 @@ final class Companion {
     private var turnTask: Task<Void, Never>?
     private var pendingCancel: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
-    private var pressTask: Task<Void, Never>?
-    private var pressStartedPTT = false
     private var autoStopTimer: Timer?
     private var utteranceGeneration = 0
     private var answeringConfirmation: Int?
@@ -74,8 +71,6 @@ final class Companion {
                                onCancel: { self?.closeBubble() }))
         }
         model.onDoubleClick = { [weak self] in self?.openTextInput() }
-        model.onPressBegan = { [weak self] in self?.pressBegan() }
-        model.onPressEnded = { [weak self] in self?.pressEnded() }
         confirmer.showBubble = { [weak self] in self?.show($0) }
         director.panel.onResignKey = { [weak self] in
             guard let self, case .input? = model.bubble else { return }
@@ -369,25 +364,6 @@ final class Companion {
     private func replyToQuestion() {
         show(nil)
         pttDown()
-    }
-
-    private func pressBegan() {
-        pressTask?.cancel()
-        pressTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.pressDelay)
-            guard !Task.isCancelled, let self else { return }
-            pressStartedPTT = true
-            pttDown()
-        }
-    }
-
-    private func pressEnded() {
-        pressTask?.cancel()
-        pressTask = nil
-        if pressStartedPTT {
-            pressStartedPTT = false
-            pttUp()
-        }
     }
 }
 

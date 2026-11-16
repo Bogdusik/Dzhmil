@@ -7,7 +7,7 @@ Built with Swift 6, SwiftUI + AppKit + Core Animation, WhisperKit (on-device spe
 ## What it does
 
 - **Lives on screen.** A transparent, non-activating panel above all windows and Spaces. Clicks pass through everywhere except the drone itself. It wanders every few minutes, banks into its turns, sleeps on the Dock after 10 minutes idle, and dims itself next to fullscreen apps.
-- **Talks.** Hold ⌥Space (or press and hold the drone), speak, release. Speech is recognised locally with Whisper large-v3 turbo; replies are streamed from Claude and spoken sentence by sentence. Double-click the drone to type instead.
+- **Talks.** Hold ⌥Space (or pick "Поговорить" in the menu bar), speak, release. Pressing and holding the drone only drags it. Speech is recognised locally with Whisper large-v3 turbo; replies are streamed from Claude and spoken sentence by sentence. Double-click the drone to type instead.
 - **Acts.** Twelve tools: system status, running apps, open app, open URL, volume, mute, timers, quit / force-quit, lock / sleep / restart / shut down, AppleScript, and zsh. Quitting apps, power actions, AppleScript and shell commands always show a confirmation bubble first; you can answer by button or by voice.
 - **Speaks first, rarely.** A daily greeting, a break reminder after two hours of work, a low-battery warning, and your own timers. At most once every 20, 45 or 120 minutes depending on the chattiness setting, and never at night, in quiet mode or over a fullscreen app.
 
@@ -53,7 +53,7 @@ swift test --package-path app/DzhmilKit
 
 ## Privacy
 
-Audio never leaves the Mac: speech recognition runs on-device. Only the recognised text, tool results and your short profile (`~/Library/Application Support/Dzhmil/profile.md`, editable in Settings) are sent to the Claude API. The microphone turns on only while you hold the key or the drone.
+Audio never leaves the Mac: speech recognition runs on-device. Only the recognised text, tool results and your short profile (`~/Library/Application Support/Dzhmil/profile.md`, editable in Settings) are sent to the Claude API. The microphone turns on only while you hold the key.
 
 ## Resource use
 
