@@ -1,8 +1,9 @@
 import Foundation
 
 public enum MacToolbox {
-    public static func all(timers: TimerStore) -> [any Tool] {
-        [
+    public static func all(timers: TimerStore, screen: (any ScreenCapturer)? = nil,
+                           beforeCapture: @escaping @Sendable () async -> Void = {}) -> [any Tool] {
+        var tools: [any Tool] = [
             SystemStatusTool(),
             ListRunningAppsTool(),
             OpenAppTool(),
@@ -16,6 +17,8 @@ public enum MacToolbox {
             AppleScriptTool(),
             ShellTool(),
         ]
+        if let screen { tools.append(LookAtScreenTool(capturer: screen, beforeCapture: beforeCapture)) }
+        return tools
     }
 }
 

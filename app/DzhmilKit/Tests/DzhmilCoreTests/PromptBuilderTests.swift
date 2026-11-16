@@ -14,6 +14,12 @@ import Testing
         #expect(s == PromptBuilder.system(profile: "Меня зовут Богдан."))
     }
 
+    @Test func systemExplainsWhenToLookAtScreen() {
+        let s = PromptBuilder.system(profile: "")
+        #expect(s.contains("look_at_screen"))
+        #expect(s.contains("только когда пользователь просит"))
+    }
+
     @Test func userTurnHasTimestamp() {
         #expect(PromptBuilder.userTurn("привет", now: date, timeZone: london, remark: nil) == "[Сейчас: воскресенье, 15 ноября 2026, 14:05]\nпривет")
     }
