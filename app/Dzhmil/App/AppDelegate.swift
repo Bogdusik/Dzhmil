@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let onboarding = Onboarding(companion: companion)
         onboarding.startIfNeeded()
         self.onboarding = onboarding
+        if CommandLine.arguments.contains("--request-screen-access") {
+            MenuBarController.requestScreenAccess()
+        }
         #if DEBUG
         if CommandLine.arguments.contains("--proactive-test") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [companion] in companion.proactive.fire(.dailyGreeting) }

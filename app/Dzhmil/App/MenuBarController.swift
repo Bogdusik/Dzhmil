@@ -9,6 +9,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var talkItem: NSMenuItem!
     private var quietItem: NSMenuItem!
     private var hideItem: NSMenuItem!
+    private var screenItem: NSMenuItem!
+    static let screenSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
 
     init(companion: Companion) {
         self.companion = companion
@@ -23,6 +25,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         quietItem = add("Тихий режим", #selector(toggleQuiet))
         hideItem = add("Спрятать", #selector(toggleHidden))
         menu.addItem(.separator())
+        screenItem = add("Разрешить смотреть на экран…", #selector(allowScreen))
         add("Настройки…", #selector(openSettings), key: ",")
         #if DEBUG
         add("Галерея состояний", #selector(openGallery))
@@ -44,6 +47,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         talkItem.title = companion.isListening ? "Закончить и отправить" : "Поговорить"
         quietItem.state = companion.director.machine.quiet ? .on : .off
         hideItem.title = companion.director.isHidden ? "Показать" : "Спрятать"
+        screenItem.isHidden = CGPreflightScreenCaptureAccess()
+    }
+
+    @objc private func allowScreen() {
+        Self.requestScreenAccess()
+    }
+
+    static func requestScreenAccess() {
+        if !CGRequestScreenCaptureAccess() {
+            NSWorkspace.shared.open(screenSettingsURL)
+        }
     }
 
     @objc private func talk() {
