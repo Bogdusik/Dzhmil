@@ -40,6 +40,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         companion.start()
+        #if DEBUG
+        if CommandLine.arguments.contains("--proactive-test") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [companion] in companion.proactive.fire(.dailyGreeting) }
+        }
+        #endif
     }
 
     #if DEBUG

@@ -36,6 +36,7 @@ final class Companion {
                             profile: { profile.load() })
     }()
 
+    private(set) lazy var proactive = ProactiveDriver(companion: self)
     private let recorder = AudioRecorder()
     private var gate = PushToTalkGate()
     private var turnTask: Task<Void, Never>?
@@ -75,6 +76,7 @@ final class Companion {
         applySettings()
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })
         Task.detached(priority: .utility) { [transcriber] in try? await transcriber.prepare() }
+        proactive.start()
     }
 
     func applySettings() {
