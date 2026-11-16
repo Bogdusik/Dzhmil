@@ -32,6 +32,10 @@ final class DronePanel: NSPanel {
 
     override var canBecomeKey: Bool { allowsKey }
 
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+
     override func resignKey() {
         super.resignKey()
         onResignKey?()
