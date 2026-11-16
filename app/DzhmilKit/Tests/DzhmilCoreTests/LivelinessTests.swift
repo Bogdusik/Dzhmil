@@ -84,10 +84,10 @@ import Testing
     }
 
     @Test func eyesFollowDirection() {
-        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 800, y: 500)).dx == 3)
-        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 200, y: 500)).dx == -3)
-        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 500, y: 800)).dy == 2)
-        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 500, y: 200)).dy == -2)
+        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 800, y: 500)).dx == 6)
+        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 200, y: 500)).dx == -6)
+        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 500, y: 800)).dy == 4)
+        #expect(EyeTracker.offset(droneCenter: drone, cursor: CGPoint(x: 500, y: 200)).dy == -4)
     }
 
     @Test func nearbyCursorMovesEyesSlightly() {

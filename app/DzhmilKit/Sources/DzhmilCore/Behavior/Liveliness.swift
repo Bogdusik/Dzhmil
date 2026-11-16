@@ -64,8 +64,8 @@ public struct ChasePolicy: Sendable {
 
 public enum EyeTracker {
     static let radius: CGFloat = 450
-    static let maxX: CGFloat = 3
-    static let maxY: CGFloat = 2
+    static let maxX: CGFloat = 6
+    static let maxY: CGFloat = 4
     static let fullAt: CGFloat = 100
 
     public static func offset(droneCenter: CGPoint, cursor: CGPoint) -> CGVector {

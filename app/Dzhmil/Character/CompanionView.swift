@@ -18,6 +18,14 @@ final class CompanionViewModel {
     var bankDegrees: Double = 0
     var bubble: Bubble?
     var bubbleRect: CGRect?
+    var gesture: GestureRequest?
+    var eyeOffset: CGVector = .zero
+    @ObservationIgnored private var gestureCounter = 0
+
+    func play(_ g: DroneGesture) {
+        gestureCounter += 1
+        gesture = GestureRequest(id: gestureCounter, gesture: g)
+    }
 
     @ObservationIgnored var onDrag: ((DragPhase) -> Void)?
     @ObservationIgnored var onDoubleClick: (() -> Void)?
@@ -50,7 +58,7 @@ struct CompanionView: View {
                 })
                 .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
             }
-            DroneView(state: model.state, bankDegrees: model.bankDegrees)
+            DroneView(state: model.state, bankDegrees: model.bankDegrees, gesture: model.gesture, eyeOffset: model.eyeOffset)
                 .contentShape(Ellipse())
                 .gesture(
                     DragGesture(minimumDistance: 4, coordinateSpace: .global)

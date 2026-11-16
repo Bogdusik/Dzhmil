@@ -8,6 +8,14 @@ struct StateGalleryView: View {
     @State private var bank: Double = 0
     @State private var bubble: Bubble?
     @State private var speaker = Speaker()
+    @State private var gesture: GestureRequest?
+    @State private var eyeX: Double = 0
+    @State private var eyeY: Double = 0
+
+    static let gestures: [(String, DroneGesture)] = [
+        ("Оглядеться", .idle(.lookAround)), ("Наклон", .idle(.tilt)), ("Прыжок", .idle(.hop)), ("Зевок", .idle(.yawn)),
+        ("Бочка", .idle(.barrelRoll)), ("Радость", .wiggle), ("Испуг", .startle), ("Вспышка", .cameraFlash),
+    ]
 
     static let samples: [(String, Bubble)] = [
         ("Текст", .text("Привет, Богдан! Как дела? Заряд 87%, всё хорошо.")),
@@ -21,7 +29,7 @@ struct StateGalleryView: View {
         VStack(spacing: 18) {
             VStack(spacing: 4) {
                 if let bubble { BubbleView(bubble: bubble, onAnswer: { _ in self.bubble = nil }, onSubmit: { _ in self.bubble = nil }, onReply: { self.bubble = nil }, onLater: { self.bubble = nil }, onCancel: { self.bubble = nil }) }
-                DroneView(state: state, bankDegrees: bank)
+                DroneView(state: state, bankDegrees: bank, gesture: gesture, eyeOffset: CGVector(dx: eyeX, dy: eyeY))
             }
             .frame(width: 340, height: 320, alignment: .bottom)
             .background(LinearGradient(colors: [Color(hex: 0xCFE7F2), Color(hex: 0xE9F4EC)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 14))
@@ -35,6 +43,17 @@ struct StateGalleryView: View {
             HStack {
                 Text("Крен")
                 Slider(value: $bank, in: -14...14)
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
+                ForEach(Self.gestures, id: \.0) { item in
+                    Button(item.0) { gesture = GestureRequest(id: (gesture?.id ?? 0) + 1, gesture: item.1) }
+                }
+            }
+            .buttonStyle(.bordered)
+            HStack {
+                Text("Глаза")
+                Slider(value: $eyeX, in: -3...3)
+                Slider(value: $eyeY, in: -2...2)
             }
             HStack {
                 ForEach(Self.samples, id: \.0) { item in
@@ -67,6 +86,13 @@ enum StateGallery {
                let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
                 try? png.write(to: directory.appendingPathComponent("\(s.rawValue).png"))
             }
+        }
+        let looking = DroneLayerView(width: 200)
+        looking.apply(state: .hover)
+        looking.setEyeOffset(CGVector(dx: 3, dy: 2))
+        if let img = looking.renderImage(), let tiff = img.tiffRepresentation,
+           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+            try? png.write(to: directory.appendingPathComponent("eyes-up-right.png"))
         }
         let icon = MenuBarController.icon()
         if let tiff = icon.tiffRepresentation, let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {

@@ -31,6 +31,8 @@ struct DroneView: NSViewRepresentable {
 
     let state: DroneState
     let bankDegrees: Double
+    var gesture: GestureRequest? = nil
+    var eyeOffset: CGVector = .zero
 
     func makeNSView(context: Context) -> DroneLayerView {
         let v = DroneLayerView(width: Self.width)
@@ -42,11 +44,23 @@ struct DroneView: NSViewRepresentable {
     func updateNSView(_ view: DroneLayerView, context: Context) {
         view.apply(state: state)
         view.setBank(bankDegrees)
+        view.setEyeOffset(eyeOffset)
+        if let gesture { view.play(gesture) }
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: DroneLayerView, context: Context) -> CGSize? {
         CGSize(width: Self.width, height: Self.height)
     }
+}
+
+enum DroneGesture: Equatable {
+    case idle(IdleGesture)
+    case wiggle, startle, cameraFlash
+}
+
+struct GestureRequest: Equatable {
+    let id: Int
+    let gesture: DroneGesture
 }
 
 final class DroneLayerView: NSView {
@@ -68,6 +82,10 @@ final class DroneLayerView: NSView {
     private var mouthBars: [CALayer] = []
     private let ring = CAShapeLayer()
     private let zzz = CATextLayer()
+    private let yawnMouth = CAShapeLayer()
+    private let flash = CAShapeLayer()
+    private var eyesBase = CGPoint.zero
+    private var lastGestureID: Int?
 
     private var currentState: DroneState?
     private let anchor = CGPoint(x: 0.5, y: 0.55)
@@ -174,6 +192,9 @@ final class DroneLayerView: NSView {
         c.addSublayer(box(78, 60, 84, 62, 26, DronePalette.body))
         c.addSublayer(box(96, 65, 30, 5, 2.5, DronePalette.shine))
         c.addSublayer(box(87, 76, 66, 34, 15, DronePalette.visor))
+        flash.path = CGPath(roundedRect: CGRect(x: 87, y: 76, width: 66, height: 34), cornerWidth: 15, cornerHeight: 15, transform: nil)
+        flash.fillColor = DronePalette.cg(0xFFFFFF)
+        flash.opacity = 0
         c.addSublayer(box(94, 123, 52, 17, 5, DronePalette.frame))
         c.addSublayer(box(111, 123, 18, 8.5, 0, DronePalette.uaBlue))
         c.addSublayer(box(111, 131.5, 18, 8.5, 0, DronePalette.uaYellow))
@@ -184,6 +205,7 @@ final class DroneLayerView: NSView {
             l.position = CGPoint(x: eyeBox.width / 2, y: eyeBox.height / 2)
         }
         eyesOpen.position = CGPoint(x: eyeBox.midX, y: eyeBox.midY)
+        eyesBase = eyesOpen.position
         eyesOpen.addSublayer(eyesBlink)
         eyesBlink.addSublayer(eyesDart)
         eyesDart.addSublayer(box(0, 0, 10, 14, 5, DronePalette.eye))
@@ -223,6 +245,13 @@ final class DroneLayerView: NSView {
             mouthBars.append(bar)
         }
         c.addSublayer(mouth)
+        yawnMouth.bounds = CGRect(x: 0, y: 0, width: 10, height: 8)
+        yawnMouth.position = CGPoint(x: 120, y: 103)
+        yawnMouth.path = CGPath(ellipseIn: yawnMouth.bounds, transform: nil)
+        yawnMouth.fillColor = DronePalette.eye
+        yawnMouth.opacity = 0
+        c.addSublayer(yawnMouth)
+        c.addSublayer(flash)
 
         c.addSublayer(stroke([(92, 108), (40, 122)], 10))
         c.addSublayer(stroke([(148, 108), (200, 122)], 10))
@@ -377,6 +406,80 @@ final class DroneLayerView: NSView {
         g.duration = 0.95
         g.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         action.add(g, forKey: "flip")
+    }
+
+    func setEyeOffset(_ offset: CGVector) {
+        let target = CGPoint(x: eyesBase.x + offset.dx, y: eyesBase.y - offset.dy)
+        guard abs(eyesOpen.position.x - target.x) > 0.05 || abs(eyesOpen.position.y - target.y) > 0.05 else { return }
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.15)
+        eyesOpen.position = target
+        CATransaction.commit()
+    }
+
+    func play(_ request: GestureRequest) {
+        guard request.id != lastGestureID else { return }
+        lastGestureID = request.id
+        switch request.gesture {
+        case .idle(.lookAround):
+            eyesDart.add(keyframes("transform.translation.x", [0, -4, -4, 4, 4, 0], [0, 0.15, 0.4, 0.55, 0.8, 1], 1.2), forKey: "look")
+        case .idle(.tilt):
+            let angle = (Bool.random() ? 8.0 : -8.0) * Double.pi / 180
+            action.add(keyframes("transform.rotation.z", [0, angle, angle, 0], [0, 0.2, 0.75, 1], 1.6), forKey: "tilt")
+        case .idle(.hop):
+            action.add(keyframes("transform.translation.y", [0, -12, 0, -4, 0], [0, 0.3, 0.6, 0.8, 1], 0.7), forKey: "hop")
+        case .idle(.yawn):
+            yawnMouth.add(keyframes("opacity", [0, 1, 1, 0], [0, 0.2, 0.8, 1], 1.4), forKey: "yawn")
+            yawnMouth.add(keyframes("transform.scale", [0.4, 1.2, 1.1, 0.4], [0, 0.3, 0.8, 1], 1.4), forKey: "yawnScale")
+            eyesDart.add(keyframes("transform.scale.y", [1, 0.35, 0.35, 1], [0, 0.2, 0.8, 1], 1.4), forKey: "squint")
+        case .idle(.barrelRoll):
+            let roll = keyframes("transform.scale.x", [1, 0, -1, 0, 1], [0, 0.25, 0.5, 0.75, 1], 0.8)
+            let lift = keyframes("transform.translation.y", [0, -10, 0], [0, 0.5, 1], 0.8)
+            action.add(group([roll, lift], 0.8), forKey: "roll")
+        case .wiggle:
+            action.add(keyframes("transform.rotation.z", [0, 6, -6, 6, -6, 0].map { $0 * Double.pi / 180 }, nil, 0.9), forKey: "wiggle")
+            showHappyEyes(for: 1.0)
+        case .startle:
+            eyesDart.add(keyframes("transform.scale", [1, 1.4, 1.4, 1], [0, 0.15, 0.7, 1], 0.5), forKey: "startle")
+            action.add(keyframes("transform.translation.y", [0, -8, 0], [0, 0.3, 1], 0.4), forKey: "jump")
+        case .cameraFlash:
+            flash.add(keyframes("opacity", [0, 0.9, 0, 0.9, 0], [0, 0.15, 0.45, 0.6, 1], 0.7), forKey: "flash")
+            led.add(keyframes("transform.scale", [1, 1.8, 1], [0, 0.5, 1], 0.7), forKey: "pulse")
+        }
+    }
+
+    private func keyframes(_ keyPath: String, _ values: [Double], _ times: [NSNumber]?, _ duration: Double) -> CAKeyframeAnimation {
+        let a = CAKeyframeAnimation(keyPath: keyPath)
+        a.values = values
+        a.keyTimes = times
+        a.duration = duration
+        a.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        return a
+    }
+
+    private func group(_ animations: [CAAnimation], _ duration: Double) -> CAAnimationGroup {
+        let g = CAAnimationGroup()
+        g.animations = animations
+        g.duration = duration
+        return g
+    }
+
+    private func showHappyEyes(for seconds: Double) {
+        guard let state = currentState, !eyesOpen.isHidden else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        eyesOpen.isHidden = true
+        eyesHappy.isHidden = false
+        CATransaction.commit()
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            guard let self, currentState == state else { return }
+            let face = DroneFace.face(for: state)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            eyesOpen.isHidden = ![.open, .wide, .darting].contains(face.eyes)
+            eyesHappy.isHidden = face.eyes != .happy
+            CATransaction.commit()
+        }
     }
 
     private func playShake() {
