@@ -26,6 +26,7 @@ final class DronePanel: NSPanel {
         becomesKeyOnlyIfNeeded = true
         isReleasedWhenClosed = false
         ignoresMouseEvents = true
+        ScreenPrivacy.apply(to: self)
     }
 
     var onResignKey: (() -> Void)?

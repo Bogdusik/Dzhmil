@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         if let dir = argument(after: "--record-demo") {
+            ScreenPrivacy.setEnabled(false, persist: false)
             let only = Set((argument(after: "--scenes") ?? "").split(separator: ",").map(String.init))
             Task { [companion] in
                 try? await Task.sleep(for: .seconds(4))

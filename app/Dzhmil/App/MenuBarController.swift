@@ -10,6 +10,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var quietItem: NSMenuItem!
     private var hideItem: NSMenuItem!
     private var screenItem: NSMenuItem!
+    private var sharingItem: NSMenuItem!
     static let screenSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
 
     init(companion: Companion) {
@@ -24,6 +25,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         quietItem = add("Quiet Mode", #selector(toggleQuiet))
         hideItem = add("Hide", #selector(toggleHidden))
+        sharingItem = add("Hide from Screen Sharing", #selector(toggleSharing))
+        sharingItem.toolTip = "Asks macOS to keep Dzhmil out of screen sharing and recordings. Some apps may still capture it; sharing a single window always keeps it out."
         menu.addItem(.separator())
         screenItem = add("Allow Screen Access…", #selector(allowScreen))
         add("Settings…", #selector(openSettings), key: ",")
@@ -47,6 +50,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         talkItem.title = companion.isListening ? "Stop and Send" : "Talk"
         quietItem.state = companion.director.machine.quiet ? .on : .off
         hideItem.title = companion.director.isHidden ? "Show" : "Hide"
+        sharingItem.state = ScreenPrivacy.isEnabled ? .on : .off
         screenItem.isHidden = CGPreflightScreenCaptureAccess()
     }
 
@@ -76,6 +80,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleHidden() {
         companion.setHidden(!companion.director.isHidden)
+    }
+
+    @objc private func toggleSharing() {
+        ScreenPrivacy.setEnabled(!ScreenPrivacy.isEnabled)
     }
 
     @objc private func openSettings() {
