@@ -164,3 +164,9 @@ public enum BubbleDismissal {
         isReply && finished && click != .bubble
     }
 }
+
+public enum BubbleRecall {
+    public static func shouldRecall(bubbleVisible: Bool, hasLastReply: Bool, click: BubbleClick) -> Bool {
+        click == .drone && !bubbleVisible && hasLastReply
+    }
+}

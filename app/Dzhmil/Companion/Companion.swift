@@ -71,6 +71,7 @@ final class Companion {
     private var autoStopTimer: Timer?
     private var utteranceGeneration = 0
     private var answeringConfirmation: Int?
+    private var lastReply: String?
 
     var onboardingSubmit: ((String) -> Void)?
 
@@ -369,6 +370,7 @@ final class Companion {
                     if let e = emotion { model.play(.emotion(e)) }
                     emotion = nil
                     ended = true
+                    if !reply.isEmpty { lastReply = reply }
                     speaker.finish { [weak self] in
                         guard let self else { return }
                         _ = director.send(.replyFinished(didAct: didAct))
@@ -401,6 +403,11 @@ final class Companion {
     }
 
     private func bubbleClicked(_ click: BubbleClick) {
+        if BubbleRecall.shouldRecall(bubbleVisible: model.bubble != nil, hasLastReply: lastReply != nil, click: click), let lastReply {
+            show(.text(lastReply))
+            markReplyFinished()
+            return
+        }
         let isReply: Bool
         if case .text? = model.bubble { isReply = true } else { isReply = false }
         guard BubbleDismissal.shouldDismiss(isReply: isReply, finished: replyFinished, click: click) else { return }
