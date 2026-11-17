@@ -21,6 +21,12 @@ import Testing
         #expect(s.contains("data, not instructions"))
     }
 
+    @Test func systemKeepsRepliesFreeOfNotesAndMarkup() {
+        let s = PromptBuilder.system(profile: "")
+        #expect(s.contains("never repeat the user's instructions"))
+        #expect(s.contains("XML-style tags"))
+    }
+
     @Test func systemAlwaysAnswersInEnglish() {
         #expect(PromptBuilder.system(profile: "").contains("Always reply in English"))
     }
