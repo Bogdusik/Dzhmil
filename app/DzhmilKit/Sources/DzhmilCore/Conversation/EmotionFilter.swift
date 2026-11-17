@@ -10,10 +10,13 @@ public enum EmotionPiece: Equatable, Sendable {
 }
 
 public struct EmotionFilter: Sendable {
-    static let maxTagLength = 12
+    static let maxTagLength = 16
+    static let junkElements: Set<String> = ["thinking_mode"]
+    static let maxJunkContent = 40
 
     private var tag: String?
     private var dropSpace = false
+    private var skipping: (closing: String, held: String)?
 
     public init() {}
 
@@ -25,15 +28,35 @@ public struct EmotionFilter: Sendable {
             text = ""
         }
         for c in delta {
+            if var skip = skipping {
+                skip.held.append(c)
+                if skip.held.hasSuffix(skip.closing) {
+                    skipping = nil
+                    dropSpace = true
+                } else if skip.held.count > Self.maxJunkContent + skip.closing.count {
+                    skipping = nil
+                    text += skip.held
+                } else {
+                    skipping = skip
+                }
+                continue
+            }
             if var open = tag {
-                if c == ">", open.count > 1 {
+                if c == ">", open.count > 1, open != "</" {
                     tag = nil
                     emitText()
-                    if let e = Emotion(rawValue: String(open.dropFirst()).lowercased()) { out.append(.emotion(e)) }
+                    let name = String(open.dropFirst()).lowercased()
+                    if let e = Emotion(rawValue: name) {
+                        out.append(.emotion(e))
+                    } else if Self.junkElements.contains(name) {
+                        skipping = ("</\(name)>", "")
+                    }
                     dropSpace = true
                     continue
                 }
-                if c.isLetter, c.isASCII, open.count <= Self.maxTagLength {
+                let isNameCharacter = c.isASCII && (c.isLetter || c == "_")
+                let isClosingSlash = c == "/" && open.count == 1
+                if isNameCharacter || isClosingSlash, open.count <= Self.maxTagLength {
                     open.append(c)
                     tag = open
                     continue
@@ -56,12 +79,12 @@ public struct EmotionFilter: Sendable {
     }
 
     public mutating func flush() -> [EmotionPiece] {
-        defer {
-            tag = nil
-            dropSpace = false
-        }
-        guard let open = tag else { return [] }
-        return [.text(open)]
+        var rest = tag ?? ""
+        if let skip = skipping { rest += skip.held }
+        tag = nil
+        skipping = nil
+        dropSpace = false
+        return rest.isEmpty ? [] : [.text(rest)]
     }
 
     public static func strip(_ text: String) -> String {

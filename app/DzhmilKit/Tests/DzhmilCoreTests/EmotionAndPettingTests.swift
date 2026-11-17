@@ -49,6 +49,28 @@ import Testing
         #expect(run(["The end <hap"]) == [.text("The end <hap")])
     }
 
+    @Test func thinkingModeMarkupIsDroppedWithItsContent() {
+        #expect(run(["<thinking_mode>auto</thinking_mode> Hello there."]) == [.text("Hello there.")])
+    }
+
+    @Test func thinkingModeMarkupSplitAcrossDeltas() {
+        #expect(run(["<thinking_", "mode>au", "to</thinking", "_mode>Hi."]) == [.text("Hi.")])
+    }
+
+    @Test func unclosedThinkingModeKeepsTheText() {
+        let reply = "auto and then a long answer that goes on well past the limit of the markup."
+        #expect(run(["<thinking_mode>" + reply]) == [.text(reply)])
+    }
+
+    @Test func unknownTagsWithUnderscoresAndStrayClosingTagsAreDropped() {
+        #expect(run(["<foo_bar>Text"]) == [.text("Text")])
+        #expect(run(["</foo>Text"]) == [.text("Text")])
+    }
+
+    @Test func stripRemovesMarkup() {
+        #expect(EmotionFilter.strip("<thinking_mode>auto</thinking_mode> <happy>Good morning!") == "Good morning!")
+    }
+
     @Test func longAngleTextStaysText() {
         #expect(run(["<abcdefghijklmnopqrstuvwxyz>"]) == [.text("<abcdefghijklmnopqrstuvwxyz>")])
     }
