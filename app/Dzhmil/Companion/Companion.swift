@@ -15,7 +15,6 @@ final class SettingsBox: @unchecked Sendable {
 
 @MainActor
 final class Companion {
-    static let bubbleLinger: Duration = .seconds(6)
     static let downloadNotice = "Скачиваю слух, это один раз и займёт несколько минут…"
 
     let director = DroneDirector()
@@ -370,8 +369,13 @@ final class Companion {
 
     private func scheduleHide() {
         hideTask?.cancel()
+        guard case .text(let shown)? = model.bubble else { return }
+        let linger = BubbleTiming.linger(for: shown)
         hideTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.bubbleLinger)
+            try? await Task.sleep(for: .seconds(linger))
+            while let self, !Task.isCancelled, case .text? = model.bubble, director.isMouseOverBubble {
+                try? await Task.sleep(for: .seconds(1))
+            }
             guard !Task.isCancelled, let self, case .text? = model.bubble else { return }
             show(nil)
         }

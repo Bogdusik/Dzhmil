@@ -101,10 +101,9 @@ struct BubbleView: View {
     }
 
     private func scrolling(_ view: some View, maxHeight: CGFloat) -> some View {
-        ViewThatFits(in: .vertical) {
-            view
-            ScrollView { view }.frame(maxHeight: maxHeight)
-        }
+        ScrollView { view }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: maxHeight)
     }
 }
 

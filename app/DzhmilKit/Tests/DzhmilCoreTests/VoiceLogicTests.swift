@@ -145,3 +145,11 @@ import Testing
                       "А можно показать целиком?", "да, но сначала покажи, что внутри"])
     func unclear(_ s: String) { #expect(YesNoParser.parse(s) == nil) }
 }
+
+@Suite struct BubbleTimingTests {
+    @Test func longerTextStaysLonger() {
+        #expect(BubbleTiming.linger(for: "Привет!") == 6)
+        #expect(BubbleTiming.linger(for: String(repeating: "а", count: 300)) == 20)
+        #expect(BubbleTiming.linger(for: String(repeating: "а", count: 5000)) == 60)
+    }
+}

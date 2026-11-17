@@ -155,3 +155,11 @@ public struct SpeechTracker<Action> {
 }
 
 extension SpeechTracker: Sendable where Action: Sendable {}
+
+public enum BubbleTiming {
+    static let charactersPerSecond = 15.0
+
+    public static func linger(for text: String) -> TimeInterval {
+        min(60, max(6, Double(text.count) / charactersPerSecond))
+    }
+}
