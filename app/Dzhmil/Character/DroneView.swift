@@ -25,7 +25,7 @@ extension Color {
 }
 
 struct DroneView: NSViewRepresentable {
-    static let width: CGFloat = 140
+    static let width: CGFloat = 124
     static let canvas = CGSize(width: 240, height: 180)
     static var height: CGFloat { width * canvas.height / canvas.width }
 
