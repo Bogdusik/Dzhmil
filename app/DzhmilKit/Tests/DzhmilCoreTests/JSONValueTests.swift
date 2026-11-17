@@ -23,4 +23,12 @@ import Testing
         #expect(v["n"]?.intValue == 3)
         #expect(v["missing"] == nil)
     }
+
+    @Test func intValueRejectsWhatIntCannotHold() {
+        #expect(JSONValue.number(1e20).intValue == nil)
+        #expect(JSONValue.number(-1e300).intValue == nil)
+        #expect(JSONValue.number(.infinity).intValue == nil)
+        #expect(JSONValue.number(2.5).intValue == nil)
+        #expect(JSONValue.number(-7).intValue == -7)
+    }
 }

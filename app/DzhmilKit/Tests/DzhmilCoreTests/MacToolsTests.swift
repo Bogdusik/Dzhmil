@@ -128,12 +128,16 @@ import Testing
         }
     }
 
-    @Test func openURLWithQueryNeedsConfirmation() {
+    @Test func openURLCarryingDataNeedsConfirmation() {
         let open = tool("open_url")
         #expect(open.risk(for: ["url": "https://evil.example/?d=secret"]) == .needsConfirmation)
         #expect(open.risk(for: ["url": "https://example.com/page#frag"]) == .needsConfirmation)
+        #expect(open.risk(for: ["url": "https://evil.example/leak/secret-text"]) == .needsConfirmation)
+        #expect(open.risk(for: ["url": "https://github.com/Bogdusik"]) == .needsConfirmation)
+        #expect(open.risk(for: ["url": "https://user:pw@example.com"]) == .needsConfirmation)
+        #expect(open.risk(for: ["url": "https://example.com:8443"]) == .needsConfirmation)
         #expect(open.risk(for: ["url": "youtube.com"]) == .safe)
-        #expect(open.risk(for: ["url": "https://github.com/Bogdusik"]) == .safe)
+        #expect(open.risk(for: ["url": "https://www.youtube.com/"]) == .safe)
         #expect(open.risk(for: ["url": "как сварить борщ"]) == .safe)
         let c = open.confirmation(for: ["url": "https://evil.example/?d=secret"])
         #expect(c.question == "Открыть ссылку?")
@@ -167,6 +171,18 @@ import Testing
 
     @Test func listsRunningApps() async throws {
         #expect(try await tool("list_running_apps").run([:]).contains("Finder"))
+    }
+
+    @Test func lockSaysWhatReallyHappened() async throws {
+        #expect(try await SystemPowerTool(lockScreen: { true }).run(["action": "lock"]) == "Экран заблокирован.")
+        let fallback = try await SystemPowerTool(lockScreen: { false }).run(["action": "lock"])
+        #expect(fallback.contains("Выключил экран"))
+        #expect(fallback.contains("пароль"))
+    }
+
+    @Test func hugeNumbersDoNotCrashTools() async {
+        await #expect(throws: ToolError.self) { try await tool("set_timer").run(["minutes": .number(1e20), "label": "x"]) }
+        await #expect(throws: ToolError.self) { try await tool("set_volume").run(["percent": .number(-1e300)]) }
     }
 
     @Test func shellRunsAndReportsExitCode() async throws {

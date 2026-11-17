@@ -113,8 +113,14 @@ struct OpenURLTool: Tool {
     func risk(for input: JSONValue) -> ToolRisk {
         let raw = (input["url"]?.stringValue ?? "").trimmingCharacters(in: .whitespaces)
         guard let url = Self.directURL(raw) else { return .safe }
-        let hasPayload = !(url.query ?? "").isEmpty || !(url.fragment ?? "").isEmpty
-        return hasPayload ? .needsConfirmation : .safe
+        return Self.isBareSite(url) ? .safe : .needsConfirmation
+    }
+
+    static func isBareSite(_ url: URL) -> Bool {
+        guard let parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
+        return ["", "/"].contains(parts.percentEncodedPath)
+            && parts.query == nil && parts.fragment == nil
+            && parts.user == nil && parts.password == nil && parts.port == nil
     }
 
     func confirmation(for input: JSONValue) -> ConfirmationRequest {

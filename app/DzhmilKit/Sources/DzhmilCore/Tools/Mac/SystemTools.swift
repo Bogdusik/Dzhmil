@@ -53,6 +53,7 @@ struct SetTimerTool: SafeTool {
 }
 
 struct SystemPowerTool: Tool {
+    var lockScreen: @Sendable () async -> Bool = ScreenLock.lock
     let name = "system_power"
     let description = "Заблокировать экран (lock), усыпить (sleep), перезагрузить (restart) или выключить (shutdown) Mac."
     let inputSchema = Schema.object(["action": ["type": "string", "enum": ["lock", "sleep", "restart", "shutdown"], "description": "Что сделать"]])
@@ -73,8 +74,8 @@ struct SystemPowerTool: Tool {
     func run(_ input: JSONValue) async throws -> String {
         switch try input.requiredString("action") {
         case "lock":
-            _ = await ProcessRunner.run("/usr/bin/pmset", ["displaysleepnow"])
-            return "Экран заблокирован."
+            if await lockScreen() { return "Экран заблокирован." }
+            return "Выключил экран. Mac заблокируется, только если в настройках включён пароль после сна экрана."
         case "sleep":
             _ = try await AppleScript.run("tell application \"System Events\" to sleep")
             return "Усыпляю Mac."
