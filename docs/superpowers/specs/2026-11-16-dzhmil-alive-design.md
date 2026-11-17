@@ -1,84 +1,84 @@
-# Джміль: живые анимации и взгляд на экран
+# Dzhmil: lively animation and looking at the screen
 
-Дата: 2026-11-16
-Статус: черновик на одобрение
-Дополняет: `2026-11-15-dzhmil-design.md`
+Date: 2026-11-16
+Status: approved
+Extends: `2026-11-15-dzhmil-design.md`
 
-## Зачем
+## Why
 
-Богдан хочет, чтобы дрон ощущался живым: двигался не только когда летает, иногда следил за курсором. И чтобы к нему можно было обратиться, когда застрял на задаче и не понимаешь, как её решить. Сейчас Джміль может ответить на вопрос, но не видит экран, поэтому «я застрял вот тут» для него пустые слова.
+The drone should feel alive: move even when it is not flying, and sometimes follow the cursor. And it should be the thing you turn to when you are stuck on a task and don't know how to solve it. Right now Dzhmil can answer a question but cannot see the screen, so "I'm stuck right here" means nothing to it.
 
-## Цели
+## Goals
 
-- Набор живых анимаций в покое и реакций на события.
-- Глаза следят за курсором, когда он рядом.
-- Изредка короткая «игра»: дрон летит за курсором и возвращается.
-- По просьбе Джміль смотрит на экран (скриншот активного окна) и помогает с тем, что там видно.
+- A set of lively idle animations and reactions to events.
+- Eyes that follow the cursor when it is close.
+- An occasional short "game": the drone chases the cursor and comes back.
+- On request, Dzhmil looks at the screen (a screenshot of the active window) and helps with what it sees.
 
-## Не-цели
+## Non-goals
 
-- Сам следить за экраном и замечать, что ты застрял (вариант B отклонён).
-- Буфер обмена, распознавание текста, запись видео.
+- Watching the screen on its own and noticing that you are stuck (option B was rejected).
+- Clipboard, text recognition, video recording.
 
-## Анти-цели
+## Anti-goals
 
-- **Скриншот тайком.** Каждый снимок сопровождается видимой анимацией и облачком.
-- **Отвлекает.** Анимации мелкие и редкие, а «игра» за курсором случается не чаще заданного лимита и выключается в тихом режиме.
-- **Прожорлив.** В покое по-прежнему < 3% CPU.
+- **Secret screenshots.** Every capture comes with a visible animation and a bubble.
+- **Distracting.** Animations are small and rare; the cursor game happens no more often than a set limit and is off in Quiet Mode.
+- **Greedy.** Still < 3% CPU at idle.
 
-## Подходы (выбор Богдана)
+## Approaches
 
-- **Инструмент `look_at_screen` (выбран).** Claude сам решает, когда посмотреть, и понимает любую формулировку. Защита от лишних снимков: правило в системном промпте плюс видимая вспышка и облачко.
-- **Ключевые слова** («глянь», «посмотри»). Предсказуемо, но хрупко. Отклонено.
-- **Снимок через ScreenCaptureKit (выбран).** `CGWindowListCreateImage` в macOS 15 SDK недоступен, а утилита `screencapture` даёт меньше контроля.
+- **A `look_at_screen` tool (chosen).** Claude decides when to look and understands any phrasing. Protection against unnecessary captures: a rule in the system prompt plus a visible flash and bubble.
+- **Keywords** ("look", "check this"). Predictable but brittle. Rejected.
+- **Capture with ScreenCaptureKit (chosen).** `CGWindowListCreateImage` is unavailable in the macOS 15 SDK, and the `screencapture` utility gives less control.
 
-## Дизайн
+## Design
 
-### 1. Живые анимации (Core Animation, слой дрона)
+### 1. Lively animation (Core Animation, the drone layer)
 
-| Жест | Когда |
+| Gesture | When |
 |---|---|
-| Оглядывается (глаза влево-вправо) | случайно в покое |
-| Наклон головы с любопытством (±8°, держит ~1 с) | случайно в покое |
-| Подпрыгивает (−12 pt и обратно) | случайно в покое |
-| Зевает (рот открыт, глаза прищурены) | в покое, чаще вечером и ночью |
-| Бочка (поворот на 360° вокруг вертикали, имитация сжатием по X) | редко, не чаще раза в 10 мин |
-| Радостное покачивание + глаза-«домики» | при пробуждении и при возвращении после «Спрятать» |
-| Испуг (глаза шире, отскок назад) | курсор быстро пролетел рядом |
-| Вспышка камеры (мигает визор, пульс огонька) | перед каждым скриншотом |
+| Looks around (eyes left and right) | randomly at idle |
+| Curious head tilt (±8°, held ~1 s) | randomly at idle |
+| Hop (−12 pt and back) | randomly at idle |
+| Yawn (mouth open, eyes squinted) | at idle, more often in the evening and at night |
+| Barrel roll (a 360° turn around the vertical axis, faked by squashing X) | rarely, at most once every 10 min |
+| Happy wiggle + happy eyes | on waking and on coming back after Hide |
+| Startle (wider eyes, jump back) | the cursor whizzed past nearby |
+| Camera flash (the visor flashes, the light pulses) | before every screenshot |
 
-Выбор жеста — чистая логика в ядре (`IdleAnimator`). Следующий жест через случайные 8–20 с, только в состоянии `hover`. Один и тот же жест не повторяется дважды подряд, у бочки свой кулдаун. В тихом режиме и при полном экране жестов нет.
+Choosing a gesture is pure logic in the core (`IdleAnimator`). The next gesture comes after a random 8–20 s, only in the `hover` state. The same gesture never plays twice in a row, and the barrel roll has its own cooldown. No gestures in Quiet Mode or over a fullscreen app.
 
-### 2. Глаза следят за курсором
+### 2. Eyes follow the cursor
 
-- Если курсор ближе ~450 pt к центру дрона, глаза смещаются в его сторону: до ±6 pt по горизонтали и до ±4 pt по вертикали в координатах рисунка, плавно (~0,15 с).
-- Если курсор дальше, глаза возвращаются в центр.
-- Работает во всех состояниях с открытыми глазами.
-- Расчёт смещения — чистая функция в ядре (`EyeTracker`).
+- If the cursor is within ~450 pt of the drone's centre, the eyes shift towards it: up to ±6 pt horizontally and ±4 pt vertically in drawing coordinates, smoothly (~0.15 s).
+- If the cursor is farther away, the eyes return to the centre.
+- Works in every state with open eyes.
+- The offset is a pure function in the core (`EyeTracker`).
 
-### 3. Игра «за курсором»
+### 3. The "chase the cursor" game
 
-- Дрон летит к точке рядом с курсором (сбоку-сверху, ~120 pt), около 4 с держится рядом, потом возвращается на прежнее место.
-- Условия: дрон свободен (`canWander`), курсор движется медленно (< 300 pt/с, ты не делаешь резких движений), нет облачка.
-- Частота зависит от «болтливости»: «Редко» — никогда, «Нормально» — не чаще раза в 20 мин, «Часто» — не чаще раза в 10 мин.
-- Решение «пора играть» — в ядре, вместе с `IdleAnimator`.
+- The drone flies to a point next to the cursor (to the side and above, ~120 pt), stays nearby for about 4 s, then returns to where it was.
+- Conditions: the drone is free (`canWander`), the cursor moves slowly (< 300 pt/s, no sudden movements), no bubble.
+- Frequency depends on chattiness: Rarely means never, Normal at most once every 20 min, Often at most once every 10 min.
+- The "time to play" decision lives in the core, next to `IdleAnimator`.
 
-### 4. Взгляд на экран: инструмент `look_at_screen`
+### 4. Looking at the screen: the `look_at_screen` tool
 
-- **Вход:** `{"target": "window" | "screen"}`. `window` — главное окно активного приложения, `screen` — весь экран. Окно Джмиля в снимок не попадает никогда.
-- **Риск:** безопасный, без подтверждения, ведь ты сам просишь. Перед снимком дрон играет вспышку и показывает облачко «Смотрю на экран…».
-- **Картинка:** длинная сторона ≤ 1568 px, JPEG с качеством ~0,75, в `tool_result` как блок `image` (base64) плюс короткая подпись: имя приложения и заголовок окна.
-- **Ядро:** протокол инструментов расширяется, чтобы инструмент мог вернуть картинку, а не только текст. `ToolExecutor` и `Conversation` собирают `tool_result` с массивом блоков. Сам снимок делает приложение через протокол `ScreenCapturer`, который передаётся в инструмент.
-- **Разрешение:** «Запись экрана». Без него инструмент возвращает ошибку, а Джміль говорит, где включить доступ: Системные настройки → Конфиденциальность и безопасность → Запись экрана. При первом снимке macOS сама покажет запрос.
-- **Системный промпт.** Добавляется правило: `look_at_screen` вызывать только когда пользователь просит посмотреть или спрашивает о том, что у него на экране или в приложении не получается. Описывать увиденное коротко и помогать по шагам.
-- **Цена и контекст.** Скриншот остаётся в истории сессии, она только дописывается. Это ~1,5 тыс. токенов в каждом следующем запросе, при кэшировании недорого. Сессия, как и раньше, сбрасывается после 30 мин тишины или 60 сообщений.
+- **Input:** `{"target": "window" | "screen"}`. `window` is the main window of the active app, `screen` is the whole screen. Dzhmil's own window is never in the shot.
+- **Risk:** safe, no confirmation, since you asked for it. Before the capture the drone plays the flash and shows a "Looking at your screen…" bubble.
+- **Image:** long side ≤ 1568 px, JPEG at quality ~0.75, sent in the `tool_result` as an `image` block (base64) plus a short caption: the app name and window title.
+- **Core:** the tool protocol is extended so a tool can return an image, not just text. `ToolExecutor` and `Conversation` build a `tool_result` with an array of blocks. The app takes the screenshot through a `ScreenCapturer` protocol passed into the tool.
+- **Permission:** Screen Recording. Without it the tool returns an error and Dzhmil explains where to grant access: System Settings → Privacy & Security → Screen Recording. macOS shows its own prompt on the first capture.
+- **System prompt.** A new rule: call `look_at_screen` only when the user asks you to look or asks about something on their screen or in an app that isn't working. Describe what you see briefly and help step by step.
+- **Cost and context.** The screenshot stays in the session history, which is append-only. That is ~1.5k tokens in every later request, cheap with caching. As before, the session resets after 30 minutes of silence or 60 messages.
 
-## Мои решения (проверь)
+## Decisions to check
 
-- Бочка, зевание и игра ограничены кулдаунами. Игра привязана к настройке «Заговаривает первым», отдельной настройки нет.
-- В спеке `window` по умолчанию: Claude сам выбирает `screen`, если просят «весь экран».
-- Буфер обмена не делаю: ты выбрал только вариант A.
+- The barrel roll, yawning and the game are limited by cooldowns. The game is tied to the "Speaks first" setting; there is no separate setting.
+- `window` is the default: Claude picks `screen` itself when asked for "the whole screen".
+- No clipboard for now.
 
-## Оставлено исполнителю
+## Left to the builder
 
-Точные тайминги и веса жестов, форма вспышки, точка «игры» относительно курсора.
+Exact gesture timings and weights, the shape of the flash, where the game's point sits relative to the cursor.

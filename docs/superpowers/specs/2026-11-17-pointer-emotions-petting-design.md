@@ -35,7 +35,7 @@ Dzhmil already looks at the screen and explains what to press, but only in words
 ### Pointer
 
 - `CapturedImage` gains `rect`: the captured area in global display points, top-left origin (CoreGraphics). The window path computes it from the picked rect clipped to the display; the screen path uses the display frame.
-- `LookAtScreenTool` records `ScreenshotFrame(rect, pixelWidth, pixelHeight, takenAt)` in a shared `ScreenshotMemory` actor and adds the pixel size to its caption ("Размер картинки W×H px").
+- `LookAtScreenTool` records `ScreenshotFrame(rect, pixelWidth, pixelHeight, takenAt)` in a shared `ScreenshotMemory` actor and adds the pixel size to its caption ("Image size W×H px").
 - `PointAtTool` (safe, no confirmation): input `x`, `y` (integers, pixels of the latest screenshot) and `label`. Fails if there is no screenshot, if it is older than 10 minutes, or if the point is outside the image. Maps with `ScreenPointMapper.appKitPoint(pixel:frame:primaryHeight:)` and calls an app-provided `pointer` closure. If the drone is hidden it fails with a message.
 - Current models (Opus 5.5 default) take images up to 2576 px with coordinates 1:1 to pixels; our screenshots are ≤ 1568 px, so no extra scaling.
 - `PointerLayout.droneSpot(target:visibleFrame:droneSize:)` puts the drone about 130 pt diagonally above the target, on the side with more room, clamped to the screen. The arrow runs from the drone edge to the ring edge.

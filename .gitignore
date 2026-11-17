@@ -5,3 +5,5 @@ app/Dzhmil.xcodeproj/
 *.xcuserstate
 xcuserdata/
 .superpowers/
+docs/superpowers/plans/
+docs/design/
