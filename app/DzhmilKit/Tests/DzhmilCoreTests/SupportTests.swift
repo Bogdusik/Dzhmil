@@ -88,15 +88,15 @@ import Testing
     @Test func createsTemplateOnFirstLoad() throws {
         let store = ProfileStore(directory: tempDir())
         #expect(store.load() == ProfileStore.template)
-        #expect(!ProfileStore.template.contains("Богдан"))
+        #expect(ProfileStore.template.hasPrefix("Write about yourself"))
         #expect(FileManager.default.fileExists(atPath: store.fileURL.path))
         #expect(store.fileURL.lastPathComponent == "profile.md")
     }
 
     @Test func saveAndLoad() throws {
         let store = ProfileStore(directory: tempDir())
-        try store.save("Новый профиль")
-        #expect(store.load() == "Новый профиль")
+        try store.save("New profile")
+        #expect(store.load() == "New profile")
     }
 
     @Test func unreadableProfileIsNeverOverwritten() throws {

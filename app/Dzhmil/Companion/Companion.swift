@@ -15,7 +15,7 @@ final class SettingsBox: @unchecked Sendable {
 
 @MainActor
 final class Companion {
-    static let downloadNotice = "Скачиваю слух, это один раз и займёт несколько минут…"
+    static let downloadNotice = "Downloading my hearing. This happens once and takes a few minutes…"
 
     let director = DroneDirector()
     let keychain = KeychainStore()
@@ -35,7 +35,7 @@ final class Companion {
                 guard let self, !self.director.isHidden else { return false }
                 self.director.revealForCapture()
                 self.model.play(.cameraFlash)
-                self.show(.text("Смотрю на экран…"))
+                self.show(.text("Looking at your screen…"))
                 return true
             }
             guard shown else { return false }
@@ -48,7 +48,7 @@ final class Companion {
         let beforeClipboard: @Sendable () async -> Bool = { [weak self] in
             await MainActor.run { () -> Bool in
                 guard let self, !self.director.isHidden else { return false }
-                self.show(.text("Смотрю, что ты скопировал…"))
+                self.show(.text("Looking at what you copied…"))
                 return true
             }
         }
@@ -122,7 +122,7 @@ final class Companion {
     }
 
     func checkKey() async -> ClaudeError? {
-        let request = MessagesRequest(model: settings.model, system: "Ответь одним словом.",
+        let request = MessagesRequest(model: settings.model, system: "Answer in one word.",
                                       messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512)
         do {
             for try await _ in client.stream(request) {}
@@ -178,14 +178,14 @@ final class Companion {
         guard !gate.isDown, !director.isHidden else { return }
         switch AVAudioPermission.status {
         case .denied:
-            say("Мне нужен доступ к микрофону. Открой Системные настройки, раздел Конфиденциальность, Микрофон.")
+            say("I need microphone access. Open System Settings → Privacy & Security → Microphone.")
             return
         case .unknown:
             Task {
                 if await AudioRecorder.requestPermission() {
-                    say("Спасибо! Теперь зажми клавишу ещё раз и говори.")
+                    say("Thanks! Now hold the key again and talk.")
                 } else {
-                    say("Без микрофона я не услышу. Можно написать мне: дважды кликни по мне.")
+                    say("Without the microphone I can't hear you. You can type to me: double-click me.")
                 }
             }
             return
@@ -230,7 +230,7 @@ final class Companion {
                 guard generation == utteranceGeneration else { return }
                 confirmer.stopAnswering()
                 _ = director.send(.failed)
-                say("Не получилось распознать речь. В первый раз мне нужен интернет, чтобы скачать модель.")
+                say("I couldn't recognise that. The first time, I need the internet to download the speech model.")
                 finishAnimation()
                 return
             }
@@ -249,7 +249,7 @@ final class Companion {
             if let yes = YesNoParser.parse(text) {
                 confirmer.resolve(yes, id: confirmer.currentID)
             } else {
-                speaker.enqueue("Ответь «да» или «нет».")
+                speaker.enqueue("Please answer yes or no.")
             }
             return
         }
@@ -302,7 +302,7 @@ final class Companion {
                     Log.app.error("Microphone failed: \(error.localizedDescription, privacy: .public)")
                     gate = PushToTalkGate()
                     _ = director.send(.failed)
-                    say("Не получилось включить микрофон.")
+                    say("I couldn't turn the microphone on.")
                     finishAnimation()
                 }
             case .stopRecording:
@@ -326,7 +326,7 @@ final class Companion {
                 confirmer.resolve(yes, id: confirmID)
             } else {
                 _ = director.send(.transcriptEmpty)
-                speaker.enqueue("Скажи «да» или «нет».")
+                speaker.enqueue("Say yes or no.")
             }
             return
         }

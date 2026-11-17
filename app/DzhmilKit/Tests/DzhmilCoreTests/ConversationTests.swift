@@ -95,7 +95,7 @@ enum Fixtures {
         let clock = self.clock
         let conv = Conversation(client: client, executor: executor,
                                 settings: { ConversationSettings(model: "claude-opus-5-5", effort: "low") },
-                                profile: { "Меня зовут Богдан." },
+                                profile: { "My name is Alex." },
                                 now: { clock.now },
                                 timeZone: TimeZone(identifier: "Europe/London")!)
         return (conv, client)
@@ -108,25 +108,25 @@ enum Fixtures {
     }
 
     @Test func plainReply() async throws {
-        let (conv, client) = make([Fixtures.text("Привет! Всё хорошо.")])
-        let events = await collect(await conv.send("привет"))
-        #expect(events == [.sentence("Привет!"), .sentence("Всё хорошо."), .finished(text: "Привет! Всё хорошо.", didAct: false)])
+        let (conv, client) = make([Fixtures.text("Hi! All good.")])
+        let events = await collect(await conv.send("hi"))
+        #expect(events == [.sentence("Hi!"), .sentence("All good."), .finished(text: "Hi! All good.", didAct: false)])
         let history = await conv.history
         #expect(history.count == 2)
         #expect(history[0]["role"] == "user")
-        #expect(history[0]["content"]?.stringValue?.hasSuffix("\nпривет") == true)
-        guard case .reply(_, let message) = Fixtures.text("Привет! Всё хорошо.") else { return }
+        #expect(history[0]["content"]?.stringValue?.hasSuffix("\nhi") == true)
+        guard case .reply(_, let message) = Fixtures.text("Hi! All good.") else { return }
         #expect(try history[1].encodedData() == message.asHistoryEntry.encodedData())
         #expect(client.requests.first?.model == "claude-opus-5-5")
         #expect(client.requests.first?.effort == "low")
     }
 
     @Test func emotionTagsBecomeEventsAndStayOutOfText() async {
-        let raw = "<happy> Ура! Всё готово."
+        let raw = "<happy> Yay! All done."
         let message = AssistantMessage(content: [["type": "text", "text": .string(raw)]], stopReason: "end_turn")
-        let (conv, _) = make([.reply(deltas: ["<hap", "py> Ура! Всё ", "готово."], message: message)])
-        let events = await collect(await conv.send("сделай"))
-        #expect(events == [.emotion(.happy), .sentence("Ура!"), .sentence("Всё готово."), .finished(text: "Ура! Всё готово.", didAct: false)])
+        let (conv, _) = make([.reply(deltas: ["<hap", "py> Yay! All ", "done."], message: message)])
+        let events = await collect(await conv.send("do it"))
+        #expect(events == [.emotion(.happy), .sentence("Yay!"), .sentence("All done."), .finished(text: "Yay! All done.", didAct: false)])
         let history = await conv.history
         guard case .array(let blocks)? = history.last?["content"] else { Issue.record("no content"); return }
         #expect(blocks.first?["text"]?.stringValue == raw)
@@ -134,11 +134,11 @@ enum Fixtures {
 
     @Test func toolRoundTrip() async {
         let tool = RecordingTool(name: "open_app")
-        let (conv, client) = make([Fixtures.toolCall([("toolu_1", "open_app", ["x": "Calculator"])]), Fixtures.text("Открыл.")], tools: [tool])
-        let events = await collect(await conv.send("открой калькулятор"))
+        let (conv, client) = make([Fixtures.toolCall([("toolu_1", "open_app", ["x": "Calculator"])]), Fixtures.text("Opened.")], tools: [tool])
+        let events = await collect(await conv.send("open calculator"))
         #expect(events.contains(.toolStarted("open_app")))
         #expect(events.contains(.toolFinished("open_app", ran: true)))
-        #expect(events.last == .finished(text: "Открыл.", didAct: true))
+        #expect(events.last == .finished(text: "Opened.", didAct: true))
         #expect(await tool.runs.value == 1)
         let history = await conv.history
         #expect(history.count == 4)
@@ -151,20 +151,20 @@ enum Fixtures {
     }
 
     @Test func imageToolResultBuildsBlocks() async {
-        let (conv, _) = make([Fixtures.toolCall([("toolu_9", "look", [:])]), Fixtures.text("Вижу Safari.")], tools: [PictureTool()])
-        _ = await collect(await conv.send("глянь"))
+        let (conv, _) = make([Fixtures.toolCall([("toolu_9", "look", [:])]), Fixtures.text("I see Safari.")], tools: [PictureTool()])
+        _ = await collect(await conv.send("look"))
         let history = await conv.history
         let result = history[2]["content"]?.arrayValue?.first
         #expect(result?["tool_use_id"] == "toolu_9")
         #expect(result?["content"] == [
             ["type": "image", "source": ["type": "base64", "media_type": "image/jpeg", "data": "AAAA"]],
-            ["type": "text", "text": "Скриншот"],
+            ["type": "text", "text": "Screenshot"],
         ])
     }
 
     @Test func parallelToolResultsInOneMessage() async {
-        let (conv, _) = make([Fixtures.toolCall([("a", "open_app", ["x": "1"]), ("b", "open_app", ["x": "2"])]), Fixtures.text("Готово.")])
-        _ = await collect(await conv.send("открой два"))
+        let (conv, _) = make([Fixtures.toolCall([("a", "open_app", ["x": "1"]), ("b", "open_app", ["x": "2"])]), Fixtures.text("Done.")])
+        _ = await collect(await conv.send("open two"))
         let history = await conv.history
         #expect(history.count == 4)
         #expect(history[2]["content"]?.arrayValue?.count == 2)
@@ -173,18 +173,18 @@ enum Fixtures {
 
     @Test func deniedToolIsNotAnAct() async {
         let tool = RecordingTool(name: "quit_app", dangerous: true)
-        let (conv, _) = make([Fixtures.toolCall([("t", "quit_app", ["x": "Safari"])]), Fixtures.text("Ладно, не закрываю.")], tools: [tool], confirm: .no)
-        let events = await collect(await conv.send("закрой сафари"))
+        let (conv, _) = make([Fixtures.toolCall([("t", "quit_app", ["x": "Safari"])]), Fixtures.text("OK, not quitting.")], tools: [tool], confirm: .no)
+        let events = await collect(await conv.send("quit safari"))
         #expect(events.contains(.toolFinished("quit_app", ran: false)))
-        #expect(events.last == .finished(text: "Ладно, не закрываю.", didAct: false))
+        #expect(events.last == .finished(text: "OK, not quitting.", didAct: false))
         #expect(await tool.runs.value == 0)
     }
 
     @Test func cancelBeforeAnyToolRollsBack() async throws {
-        let (conv, client) = make([Fixtures.text("Первый ответ."), .hang])
-        _ = await collect(await conv.send("раз"))
+        let (conv, client) = make([Fixtures.text("First reply."), .hang])
+        _ = await collect(await conv.send("one"))
         let snapshot = await conv.history
-        let stream = await conv.send("два")
+        let stream = await conv.send("two")
         let collector = Task { await collect(stream) }
         for _ in 0..<200 where client.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
         await conv.cancel()
@@ -194,10 +194,10 @@ enum Fixtures {
     }
 
     @Test func cancelKeepsToolsThatAlreadyRan() async throws {
-        let (conv, client) = make([Fixtures.text("Первый ответ."), Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .hang])
-        _ = await collect(await conv.send("раз"))
+        let (conv, client) = make([Fixtures.text("First reply."), Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .hang])
+        _ = await collect(await conv.send("one"))
         let before = await conv.history.count
-        let stream = await conv.send("два")
+        let stream = await conv.send("two")
         let collector = Task { await collect(stream) }
         for _ in 0..<200 where client.requests.count < 3 { try await Task.sleep(for: .milliseconds(10)) }
         #expect(client.requests.count == 3)
@@ -209,38 +209,38 @@ enum Fixtures {
     }
 
     @Test func failureAfterToolKeepsWhatRanAndMergesNextTurn() async throws {
-        let (conv, client) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .fail(.network), Fixtures.text("Ок.")])
-        let events = await collect(await conv.send("открой"))
+        let (conv, client) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .fail(.network), Fixtures.text("OK.")])
+        let events = await collect(await conv.send("open"))
         #expect(events.last == .failed(.network))
         let history = await conv.history
         try #require(history.count == 3)
         #expect(history[2]["content"]?.arrayValue?.first?["type"] == "tool_result")
-        _ = await collect(await conv.send("ещё раз"))
+        _ = await collect(await conv.send("again"))
         try #require(client.requests.count == 3)
         let sent = client.requests[2].messages
         #expect(sent.count == 3)
         let blocks = sent.last?["content"]?.arrayValue ?? []
         #expect(blocks.first?["type"] == "tool_result")
         #expect(blocks.last?["type"] == "text")
-        #expect(blocks.last?["text"]?.stringValue?.hasSuffix("\nещё раз") == true)
+        #expect(blocks.last?["text"]?.stringValue?.hasSuffix("\nagain") == true)
     }
 
     @Test func resetSessionLetsTheCurrentTurnFinish() async throws {
-        let (conv, client) = make([.after(.milliseconds(200), Fixtures.text("Готово.")), Fixtures.text("Новая.")])
-        let stream = await conv.send("сделай")
+        let (conv, client) = make([.after(.milliseconds(200), Fixtures.text("Done.")), Fixtures.text("New.")])
+        let stream = await conv.send("do it")
         let collector = Task { await collect(stream) }
         for _ in 0..<200 where client.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
         await conv.resetSession()
         let events = await collector.value
-        #expect(events.last == .finished(text: "Готово.", didAct: false))
-        _ = await collect(await conv.send("заново"))
+        #expect(events.last == .finished(text: "Done.", didAct: false))
+        _ = await collect(await conv.send("start over"))
         try #require(client.requests.count == 2)
         #expect(client.requests[1].messages.count == 1)
     }
 
     @Test func errorEmitsFailedAndRollsBack() async {
         let (conv, _) = make([.fail(.network)])
-        let events = await collect(await conv.send("привет"))
+        let events = await collect(await conv.send("hi"))
         #expect(events == [.failed(.network)])
         #expect(await conv.history.isEmpty)
     }
@@ -248,29 +248,29 @@ enum Fixtures {
     @Test func roundLimit() async {
         let steps = (0..<9).map { Fixtures.toolCall([("t\($0)", "open_app", ["x": "1"])]) }
         let (conv, client) = make(steps)
-        let events = await collect(await conv.send("крутись"))
+        let events = await collect(await conv.send("spin"))
         #expect(client.requests.count == 8)
         guard case .finished(let text, _) = events.last else {
             Issue.record("no finished event")
             return
         }
-        #expect(text == "Я запутался, давай попробуем по-другому.")
+        #expect(text == "I got confused, let's try another way.")
     }
 
     @Test func remarkConsumedOnce() async {
-        let (conv, client) = make([Fixtures.text("Хорошо."), Fixtures.text("Ок.")])
-        await conv.noteRemark("Как дела?")
-        _ = await collect(await conv.send("нормально"))
-        _ = await collect(await conv.send("а ты?"))
+        let (conv, client) = make([Fixtures.text("Good."), Fixtures.text("OK.")])
+        await conv.noteRemark("How are you?")
+        _ = await collect(await conv.send("fine"))
+        _ = await collect(await conv.send("and you?"))
         let first = client.requests[0].messages.last?["content"]?.stringValue ?? ""
         let second = client.requests[1].messages.last?["content"]?.stringValue ?? ""
-        #expect(first.contains("[Джміль только что сказал: «Как дела?»]"))
-        #expect(!second.contains("Джміль только что сказал"))
+        #expect(first.contains("[Dzhmil just said: “How are you?”]"))
+        #expect(!second.contains("Dzhmil just said"))
     }
 
     @Test func staleSessionResetsAfterSilence() async {
-        let (conv, _) = make([Fixtures.text("Привет.")])
-        _ = await collect(await conv.send("привет"))
+        let (conv, _) = make([Fixtures.text("Hi.")])
+        _ = await collect(await conv.send("hi"))
         clock.advance(29 * 60)
         await conv.resetIfStale()
         #expect(await conv.history.count == 2)
@@ -280,8 +280,8 @@ enum Fixtures {
     }
 
     @Test func staleSessionResetsAfterSixtyMessages() async {
-        let (conv, _) = make((0..<30).map { _ in Fixtures.text("Ок.") })
-        for _ in 0..<30 { _ = await collect(await conv.send("ещё")) }
+        let (conv, _) = make((0..<30).map { _ in Fixtures.text("OK.") })
+        for _ in 0..<30 { _ = await collect(await conv.send("more")) }
         #expect(await conv.history.count == 60)
         await conv.resetIfStale()
         #expect(await conv.history.isEmpty)
@@ -290,7 +290,7 @@ enum Fixtures {
     @Test func emptyReplyAfterToolKeepsTheToolRound() async {
         let empty = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [], stopReason: "end_turn"))
         let (conv, _) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), empty])
-        let events = await collect(await conv.send("открой"))
+        let events = await collect(await conv.send("open"))
         #expect(events.last == .finished(text: "", didAct: true))
         #expect(await conv.history.count == 3)
     }
@@ -298,38 +298,38 @@ enum Fixtures {
     @Test func truncatedToolUseFails() async {
         let truncated = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [["type": "tool_use", "id": "t", "name": "open_app", "input": ["x": "1"]]], stopReason: "max_tokens"))
         let (conv, _) = make([truncated])
-        let events = await collect(await conv.send("открой"))
+        let events = await collect(await conv.send("open"))
         #expect(events == [.failed(.incomplete)])
         #expect(await conv.history.isEmpty)
     }
 
     @Test func badRequestResetsSession() async {
-        let (conv, _) = make([Fixtures.text("Привет."), .fail(.api(status: 400, message: "bad"))])
-        _ = await collect(await conv.send("привет"))
+        let (conv, _) = make([Fixtures.text("Hi."), .fail(.api(status: 400, message: "bad"))])
+        _ = await collect(await conv.send("hi"))
         #expect(await conv.history.count == 2)
-        let events = await collect(await conv.send("ещё"))
+        let events = await collect(await conv.send("more"))
         #expect(events == [.failed(.api(status: 400, message: "bad"))])
         #expect(await conv.history.isEmpty)
     }
 
     @Test func systemIsFrozenWithinSession() async {
-        let client = FakeClaudeClient([Fixtures.text("Раз."), Fixtures.text("Два."), Fixtures.text("Три.")])
-        let profile = ProfileBox("Профиль А")
+        let client = FakeClaudeClient([Fixtures.text("One."), Fixtures.text("Two."), Fixtures.text("Three.")])
+        let profile = ProfileBox("Profile A")
         let conv = Conversation(client: client, executor: ToolExecutor(tools: [], confirmer: ScriptedConfirmer(mode: .yes)),
                                 settings: { ConversationSettings(model: "claude-opus-5-5", effort: "low") },
                                 profile: { profile.value })
-        _ = await collect(await conv.send("раз"))
-        profile.value = "Профиль Б"
-        _ = await collect(await conv.send("два"))
+        _ = await collect(await conv.send("one"))
+        profile.value = "Profile B"
+        _ = await collect(await conv.send("two"))
         #expect(client.requests[1].system == client.requests[0].system)
         await conv.resetSession()
-        _ = await collect(await conv.send("три"))
-        #expect(client.requests[2].system.contains("Профиль Б"))
+        _ = await collect(await conv.send("three"))
+        #expect(client.requests[2].system.contains("Profile B"))
     }
 
     @Test func systemAndToolsAreStableAcrossRounds() async throws {
-        let (conv, client) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), Fixtures.text("Да.")])
-        _ = await collect(await conv.send("сделай"))
+        let (conv, client) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), Fixtures.text("Yes.")])
+        _ = await collect(await conv.send("do it"))
         let reqs = client.requests
         #expect(reqs.count == 2)
         #expect(reqs[0].system == reqs[1].system)

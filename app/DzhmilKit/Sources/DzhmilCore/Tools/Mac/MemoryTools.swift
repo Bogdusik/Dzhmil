@@ -1,7 +1,7 @@
 import Foundation
 
 public enum MemoryNotes {
-    static let header = "## Запомнил"
+    static let header = "## Remembered"
     static let maxLength = 200
     static let maxFacts = 50
     static let minQuery = 3
@@ -28,11 +28,11 @@ public enum MemoryNotes {
 
     public static func adding(_ fact: String, to text: String) throws -> String {
         let f = clean(fact)
-        guard !f.isEmpty else { throw ToolError.message("Нечего запоминать.") }
-        guard f.count <= maxLength else { throw ToolError.message("Слишком длинно, сформулируй до \(maxLength) символов.") }
+        guard !f.isEmpty else { throw ToolError.message("Nothing to remember.") }
+        guard f.count <= maxLength else { throw ToolError.message("Too long, keep it under \(maxLength) characters.") }
         let existing = facts(in: text)
         if existing.contains(where: { $0.lowercased() == f.lowercased() }) { return text }
-        guard existing.count < maxFacts else { throw ToolError.message("Память заполнена: \(maxFacts) пунктов. Попроси меня что-то забыть.") }
+        guard existing.count < maxFacts else { throw ToolError.message("My memory is full: \(maxFacts) items. Ask me to forget something.") }
 
         var lines = text.components(separatedBy: "\n")
         guard let s = section(lines) else {
@@ -47,10 +47,10 @@ public enum MemoryNotes {
 
     public static func removing(_ query: String, from text: String) throws -> (String, [String]) {
         let q = clean(query).lowercased()
-        guard q.count >= minQuery else { throw ToolError.message("Уточни, что именно забыть.") }
+        guard q.count >= minQuery else { throw ToolError.message("Say exactly what to forget.") }
         var lines = text.components(separatedBy: "\n")
         let hits = factIndices(lines).filter { lines[$0].dropFirst(2).lowercased().contains(q) }
-        guard !hits.isEmpty else { throw ToolError.message("Не нашёл такого в памяти.") }
+        guard !hits.isEmpty else { throw ToolError.message("I couldn't find that in my memory.") }
         let removed = hits.map { String(lines[$0].dropFirst(2)) }
         for i in hits.reversed() { lines.remove(at: i) }
         return (lines.joined(separator: "\n"), removed)
@@ -60,26 +60,26 @@ public enum MemoryNotes {
 struct RememberTool: SafeTool {
     let profile: ProfileStore
     let name = "remember"
-    let description = "Запомнить факт о пользователе надолго, только когда он прямо просит запомнить. Коротко, своими словами, до 200 символов."
-    let inputSchema = Schema.object(["fact": Schema.string("Что запомнить, например «Собеседование в четверг в 10:00»")])
+    let description = "Remember a fact about the user for good, only when they explicitly ask you to. Short, in your own words, up to 200 characters."
+    let inputSchema = Schema.object(["fact": Schema.string("What to remember, for example “Job interview on Thursday at 10:00”")])
 
     func run(_ input: JSONValue) async throws -> String {
         let fact = try input.requiredString("fact")
         let text = try MemoryNotes.adding(fact, to: profile.load())
         try profile.save(text)
-        return "Запомнил: \(MemoryNotes.clean(fact))"
+        return "Remembered: \(MemoryNotes.clean(fact))"
     }
 }
 
 struct ForgetTool: SafeTool {
     let profile: ProfileStore
     let name = "forget"
-    let description = "Забыть запомненное раньше: удаляет пункты памяти, содержащие этот текст."
-    let inputSchema = Schema.object(["query": Schema.string("Слово или часть фразы из пункта, который нужно забыть")])
+    let description = "Forget something remembered earlier: removes memory items that contain this text."
+    let inputSchema = Schema.object(["query": Schema.string("A word or part of the item to forget")])
 
     func run(_ input: JSONValue) async throws -> String {
         let (text, removed) = try MemoryNotes.removing(try input.requiredString("query"), from: profile.load())
         try profile.save(text)
-        return "Забыл: " + removed.joined(separator: "; ")
+        return "Forgot: " + removed.joined(separator: "; ")
     }
 }

@@ -28,15 +28,15 @@ public protocol ScreenCapturer: Sendable {
 }
 
 struct LookAtScreenTool: SafeTool {
-    static let deniedMessage = "Нет доступа к записи экрана. Включи Джмиля в Системных настройках → Конфиденциальность и безопасность → Запись экрана, потом перезапусти меня."
+    static let deniedMessage = "I don't have Screen Recording access. Turn Dzhmil on in System Settings → Privacy & Security → Screen Recording, then restart me."
 
     let capturer: any ScreenCapturer
     let beforeCapture: @Sendable () async -> Bool
     var memory: ScreenshotMemory? = nil
     var now: @Sendable () -> Date = { Date() }
     let name = "look_at_screen"
-    let description = "Сделать скриншот и посмотреть на экран пользователя. window — активное окно, screen — весь экран. Вызывай только когда пользователь просит посмотреть или спрашивает о том, что у него на экране."
-    let inputSchema = Schema.object(["target": ["type": "string", "enum": ["window", "screen"], "description": "window или screen"]])
+    let description = "Take a screenshot to see the user's screen. window is the active window, screen is the whole screen. Call it only when the user asks you to look or asks about something on their screen."
+    let inputSchema = Schema.object(["target": ["type": "string", "enum": ["window", "screen"], "description": "window or screen"]])
 
     func run(_ input: JSONValue) async throws -> String {
         try await runRich(input).text
@@ -45,7 +45,7 @@ struct LookAtScreenTool: SafeTool {
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
         let requested = CaptureTarget(rawValue: input["target"]?.stringValue ?? "window") ?? .window
         guard await beforeCapture() else {
-            throw ToolError.message("Я сейчас спрятан и не могу показать, что смотрю на экран. Позови меня и попроси ещё раз.")
+            throw ToolError.message("I'm hidden right now, so I can't show that I'm looking. Call me back and ask again.")
         }
         try Task.checkCancellation()
         do {
@@ -55,12 +55,12 @@ struct LookAtScreenTool: SafeTool {
             let frame = shot.rect.isEmpty ? nil
                 : ScreenshotFrame(rect: shot.rect, pixelWidth: size.width, pixelHeight: size.height, takenAt: now())
             await memory?.remember(frame)
-            let text = caption(shot, target) + ". Размер картинки \(size.width)×\(size.height) px."
+            let text = caption(shot, target) + ". Image size \(size.width)×\(size.height) px."
             return ToolRichOutput(text: text, images: [ToolImage(mediaType: "image/jpeg", base64: base64)])
         } catch ScreenCaptureError.permissionDenied {
             throw ToolError.message(Self.deniedMessage)
         } catch ScreenCaptureError.nothingToCapture {
-            throw ToolError.message("Не нашёл, что снять: на экране нет окон.")
+            throw ToolError.message("Nothing to capture: there are no windows on screen.")
         }
     }
 
@@ -76,9 +76,9 @@ struct LookAtScreenTool: SafeTool {
         switch target {
         case .window:
             let parts = [shot.appName, shot.windowTitle].compactMap { $0 }.filter { !$0.isEmpty }
-            return "Скриншот окна: " + (parts.isEmpty ? "без названия" : parts.joined(separator: " — "))
+            return "Window screenshot: " + (parts.isEmpty ? "untitled" : parts.joined(separator: " — "))
         case .screen:
-            return "Скриншот экрана" + (shot.appName.map { ". Активное приложение: \($0)" } ?? "")
+            return "Screenshot of the screen" + (shot.appName.map { ". Active app: \($0)" } ?? "")
         }
     }
 }

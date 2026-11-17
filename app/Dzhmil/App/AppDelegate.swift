@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--pointer-demo") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [companion] in
                 guard let frame = NSScreen.main?.frame else { return }
-                _ = companion.director.point(at: CGPoint(x: frame.midX + 200, y: frame.midY - 120), label: "Кнопка Run")
+                _ = companion.director.point(at: CGPoint(x: frame.midX + 200, y: frame.midY - 120), label: "Run button")
                 if let dir = self.argument(after: "--pointer-demo-shots") {
                     Task {
                         for (i, delay) in [0.6, 2.4].enumerated() {

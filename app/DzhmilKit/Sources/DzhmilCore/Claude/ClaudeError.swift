@@ -4,14 +4,14 @@ public enum ClaudeError: Error, Equatable, Sendable {
 
     public var userMessage: String {
         switch self {
-        case .missingKey: "Мне нужен ключ API. Открой настройки."
-        case .invalidKey: "Ключ API не подходит. Проверь его в настройках."
-        case .insufficientCredit: "На балансе Claude закончились деньги. Пополни его в Console."
-        case .rateLimited, .overloaded: "Мозг перегружен, попробуй через минуту."
-        case .network: "Не могу связаться с мозгом, проверь интернет."
-        case .refusal: "Об этом я говорить не буду."
-        case .incomplete: "Я сбился на полуслове. Повтори, пожалуйста."
-        case .api(let status, _): "Что-то сломалось (код \(status))."
+        case .missingKey: "I need an API key. Open Settings."
+        case .invalidKey: "That API key doesn't work. Check it in Settings."
+        case .insufficientCredit: "Your Claude balance has run out. Top it up in the Console."
+        case .rateLimited, .overloaded: "My brain is overloaded, try again in a minute."
+        case .network: "I can't reach my brain. Check your internet."
+        case .refusal: "I won't talk about that."
+        case .incomplete: "I lost my train of thought. Please say that again."
+        case .api(let status, _): "Something broke (code \(status))."
         }
     }
 

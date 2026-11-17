@@ -54,17 +54,13 @@ import Testing
         #expect(resolve("Notes.app") == "Notes")
     }
 
-    @Test func russianAliases() {
-        #expect(resolve("Сафари") == "Safari")
-        #expect(resolve("хром") == "Google Chrome")
+    @Test func englishAliases() {
         #expect(resolve("chrome") == "Google Chrome")
-        #expect(resolve("телеграм") == "Telegram")
-        #expect(resolve("телега") == "Telegram")
         #expect(resolve("vs code") == "Visual Studio Code")
-        #expect(resolve("вс код") == "Visual Studio Code")
         #expect(resolve("vscode") == "Visual Studio Code")
-        #expect(resolve("терминал") == "Terminal")
-        #expect(resolve("настройки") == "System Settings")
+        #expect(resolve("code") == "Visual Studio Code")
+        #expect(resolve("settings") == "System Settings")
+        #expect(resolve("system preferences") == "System Settings")
     }
 
     @Test func prefixMatch() {
@@ -72,7 +68,7 @@ import Testing
     }
 
     @Test func unknownIsNil() {
-        #expect(resolve("фотошоп") == nil)
+        #expect(resolve("photoshop") == nil)
         #expect(resolve("") == nil)
     }
 
@@ -90,8 +86,8 @@ import Testing
         #expect(s.diskFreeGB > 0)
         #expect(s.uptime > 0)
         #expect((0...100).contains(s.cpuLoadPercent))
-        #expect(s.summary.contains("Память"))
-        #expect(s.summary.contains("Диск"))
+        #expect(s.summary.contains("Memory"))
+        #expect(s.summary.contains("Disk"))
     }
 }
 
@@ -99,9 +95,9 @@ import Testing
     @Test func firesOnceWhenDue() async {
         let store = TimerStore()
         let t0 = Date()
-        await store.add(label: "чайник", fireAt: t0.addingTimeInterval(300))
+        await store.add(label: "kettle", fireAt: t0.addingTimeInterval(300))
         #expect(await store.due(now: t0).isEmpty)
-        #expect(await store.due(now: t0.addingTimeInterval(360)) == ["чайник"])
+        #expect(await store.due(now: t0.addingTimeInterval(360)) == ["kettle"])
         #expect(await store.due(now: t0.addingTimeInterval(400)).isEmpty)
     }
 
@@ -113,13 +109,13 @@ import Testing
         let file = tempFile()
         let t0 = Date(timeIntervalSince1970: 1_000_000)
         let first = TimerStore(file: file)
-        await first.add(label: "чайник", fireAt: t0.addingTimeInterval(300))
-        await first.add(label: "созвон", fireAt: t0.addingTimeInterval(900))
+        await first.add(label: "kettle", fireAt: t0.addingTimeInterval(300))
+        await first.add(label: "call", fireAt: t0.addingTimeInterval(900))
         let second = TimerStore(file: file)
-        #expect(await second.due(now: t0.addingTimeInterval(400)) == ["чайник"])
+        #expect(await second.due(now: t0.addingTimeInterval(400)) == ["kettle"])
         let third = TimerStore(file: file)
         #expect(await third.due(now: t0.addingTimeInterval(400)).isEmpty)
-        #expect(await third.due(now: t0.addingTimeInterval(1000)) == ["созвон"])
+        #expect(await third.due(now: t0.addingTimeInterval(1000)) == ["call"])
     }
 
     @Test func corruptTimerFileStartsEmpty() async throws {
@@ -163,16 +159,16 @@ import Testing
         #expect(open.risk(for: ["url": "https://example.com:8443"]) == .needsConfirmation)
         #expect(open.risk(for: ["url": "youtube.com"]) == .safe)
         #expect(open.risk(for: ["url": "https://www.youtube.com/"]) == .safe)
-        #expect(open.risk(for: ["url": "как сварить борщ"]) == .safe)
+        #expect(open.risk(for: ["url": "how to cook pasta"]) == .safe)
         let c = open.confirmation(for: ["url": "https://evil.example/?d=secret"])
-        #expect(c.question == "Открыть ссылку?")
+        #expect(c.question == "Open this link?")
         #expect(c.detail == "https://evil.example/?d=secret")
     }
 
     @Test func confirmationTexts() {
-        #expect(tool("quit_app").confirmation(for: ["app": "Safari"]).question == "Закрыть Safari?")
+        #expect(tool("quit_app").confirmation(for: ["app": "Safari"]).question == "Quit Safari?")
         let shell = tool("run_shell").confirmation(for: ["command": "ls"])
-        #expect(shell.question == "Выполнить команду в терминале?")
+        #expect(shell.question == "Run this command in Terminal?")
         #expect(shell.detail == "ls")
         #expect(tool("run_applescript").confirmation(for: ["script": "beep"]).detail == "beep")
     }
@@ -190,7 +186,7 @@ import Testing
     @Test func timerRange() async {
         await #expect(throws: ToolError.self) { try await tool("set_timer").run(["minutes": 0, "label": "x"]) }
         await #expect(throws: ToolError.self) { try await tool("set_timer").run(["minutes": 2000, "label": "x"]) }
-        let ok = try? await tool("set_timer").run(["minutes": 5, "label": "чайник"])
+        let ok = try? await tool("set_timer").run(["minutes": 5, "label": "kettle"])
         #expect(ok != nil)
     }
 
@@ -199,10 +195,10 @@ import Testing
     }
 
     @Test func lockSaysWhatReallyHappened() async throws {
-        #expect(try await SystemPowerTool(lockScreen: { true }).run(["action": "lock"]) == "Экран заблокирован.")
+        #expect(try await SystemPowerTool(lockScreen: { true }).run(["action": "lock"]) == "Screen locked.")
         let fallback = try await SystemPowerTool(lockScreen: { false }).run(["action": "lock"])
-        #expect(fallback.contains("Выключил экран"))
-        #expect(fallback.contains("пароль"))
+        #expect(fallback.contains("Turned the display off"))
+        #expect(fallback.contains("password"))
     }
 
     @Test func hugeNumbersDoNotCrashTools() async {

@@ -2,11 +2,10 @@ import Foundation
 
 public enum TranscriptFilter {
     static let hallucinations = [
-        "продолжение следует", "субтитры сделал", "субтитры создавал", "субтитры подогнал", "редактор субтитров",
-        "спасибо за просмотр", "thank you for watching", "thanks for watching", "дякую за перегляд", "amara.org",
+        "thank you for watching", "thanks for watching", "subtitles by", "amara.org", "please subscribe", "like and subscribe",
     ]
 
-    static let wholeUtterance: Set<String> = ["you", "подписывайтесь на канал", "всем пока", "продолжение следует"]
+    static let wholeUtterance: Set<String> = ["you", "bye", "please subscribe"]
 
     public static func clean(_ raw: String) -> String? {
         var text = raw.replacingOccurrences(of: #"<\|[^|]*\|>"#, with: " ", options: .regularExpression)
@@ -51,10 +50,10 @@ public struct PushToTalkGate: Sendable {
 }
 
 public enum YesNoParser {
-    static let negative: Set<String> = ["нет", "ні", "нi", "no", "не", "нє", "отмена", "отмени", "стоп", "cancel", "stop", "nope", "неа"]
-    static let positive: Set<String> = ["да", "ага", "так", "yes", "давай", "конечно", "угу", "ок", "окей", "ok", "okay", "yeah", "yep",
-                                        "роби", "делай", "закрывай", "выполняй", "запускай", "sure", "звісно", "звичайно", "авжеж"]
-    static let fillers: Set<String> = ["ну", "же", "please", "пожалуйста", "будь", "ласка"]
+    static let negative: Set<String> = ["no", "nope", "nah", "cancel", "stop", "don", "dont", "not", "never", "abort"]
+    static let positive: Set<String> = ["yes", "yeah", "yep", "yup", "sure", "ok", "okay", "go", "do", "confirm", "proceed",
+                                        "absolutely", "definitely", "close", "run", "launch", "quit"]
+    static let fillers: Set<String> = ["it", "ahead", "please", "just"]
     static let maxWords = 4
 
     public static func parse(_ text: String) -> Bool? {

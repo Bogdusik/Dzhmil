@@ -3,7 +3,7 @@ import Foundation
 public struct ProfileStore: Sendable {
     public static let didChange = Notification.Name("dzhmil.profileDidChange")
 
-    public static let template = "Здесь можно написать о себе: как тебя зовут, чем занимаешься, что любишь.\n"
+    public static let template = "Write about yourself here: your name, what you do, what you like.\n"
 
     public static var defaultDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser

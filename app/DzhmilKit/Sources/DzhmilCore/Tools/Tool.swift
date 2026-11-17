@@ -89,6 +89,6 @@ public struct ToolOutcome: Equatable, Sendable {
 public enum ToolOutput {
     public static func limit(_ s: String, max: Int = 4000) -> String {
         guard s.count > max else { return s }
-        return String(s.prefix(max)) + "\n…[обрезано, всего \(s.count) символов]"
+        return String(s.prefix(max)) + "\n…[cut, \(s.count) characters in total]"
     }
 }

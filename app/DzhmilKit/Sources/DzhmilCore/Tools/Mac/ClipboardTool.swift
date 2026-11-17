@@ -14,28 +14,28 @@ struct ReadClipboardTool: SafeTool {
     let reader: any ClipboardReader
     let beforeRead: @Sendable () async -> Bool
     let name = "read_clipboard"
-    let description = "Прочитать текст, который пользователь скопировал: ошибку, код, сообщение. Вызывай, только когда он спрашивает про скопированное."
+    let description = "Read the text the user copied: an error, code or a message. Call it only when they ask about what they copied."
     let inputSchema = Schema.object([:])
     var outputLimit: Int { Self.maxCharacters + 200 }
 
     func run(_ input: JSONValue) async throws -> String {
         guard await beforeRead() else {
-            throw ToolError.message("Я сейчас спрятан. Позови меня и попроси ещё раз.")
+            throw ToolError.message("I'm hidden right now. Call me back and ask again.")
         }
         try Task.checkCancellation()
         switch await reader.read() {
         case .concealed:
-            throw ToolError.message("Там скопировано что-то секретное, например пароль. Такое я не читаю.")
+            throw ToolError.message("Something secret is copied, like a password. I don't read that.")
         case .notText:
-            throw ToolError.message("Скопирован не текст. Скопируй текст ошибки и спроси ещё раз.")
+            throw ToolError.message("What's copied isn't text. Copy the error text and ask again.")
         case .empty:
-            throw ToolError.message("Буфер обмена пуст.")
+            throw ToolError.message("The clipboard is empty.")
         case .text(let text):
-            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ToolError.message("Буфер обмена пуст.") }
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ToolError.message("The clipboard is empty.") }
             let cut = text.count > Self.maxCharacters
-                ? String(text.prefix(Self.maxCharacters)) + "\n…[обрезано, всего \(text.count) символов]"
+                ? String(text.prefix(Self.maxCharacters)) + "\n…[cut, \(text.count) characters in total]"
                 : text
-            return "Скопированный текст (\(text.count) символов):\n" + cut
+            return "Copied text (\(text.count) characters):\n" + cut
         }
     }
 }

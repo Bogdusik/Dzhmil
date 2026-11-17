@@ -4,7 +4,7 @@ import DzhmilCore
 
 @MainActor
 final class Onboarding {
-    static let greeting = "Привет! Я Джміль. Чтобы думать, мне нужен ключ API из Claude Console. Вставь его сюда."
+    static let greeting = "Hi! I'm Dzhmil. To think, I need an API key from the Claude Console. Paste it here."
 
     private unowned let companion: Companion
 
@@ -30,20 +30,20 @@ final class Onboarding {
         do {
             try companion.keychain.save(key)
         } catch {
-            companion.showOnboarding("Не получилось сохранить ключ в Keychain. Попробуй ещё раз.")
+            companion.showOnboarding("Couldn't save the key in the Keychain. Please try again.")
             return
         }
-        companion.say("Проверяю ключ…")
+        companion.say("Checking the key…")
         Task {
             switch await companion.checkKey() {
             case nil:
                 let hotkey = KeyboardShortcuts.getShortcut(for: .pushToTalk)?.description ?? "⌥Space"
-                companion.say("Готово! Зажми \(hotkey) и говори. Отпустишь — я отвечу. А дважды кликнув по мне, можно написать.")
+                companion.say("All set! Hold \(hotkey) and talk, and I'll answer when you let go. Double-click me to type instead.")
             case let error? where error.meansBadKey:
                 try? companion.keychain.delete()
-                companion.showOnboarding(error.userMessage + " Попробуй ещё раз.")
+                companion.showOnboarding(error.userMessage + " Please try again.")
             case let error?:
-                companion.say(error.userMessage + " Ключ я сохранил, проверю его позже.")
+                companion.say(error.userMessage + " I saved the key and will check it later.")
             }
         }
     }

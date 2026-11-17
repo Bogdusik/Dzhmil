@@ -16,16 +16,12 @@ public struct AppCandidate: Equatable, Sendable {
 
 public enum AppResolver {
     static let aliases: [String: String] = [
-        "сафари": "Safari",
-        "хром": "Google Chrome", "chrome": "Google Chrome", "гугл хром": "Google Chrome", "гугл": "Google Chrome",
-        "телеграм": "Telegram", "телеграмм": "Telegram", "телега": "Telegram", "тг": "Telegram",
-        "vs code": "Visual Studio Code", "vscode": "Visual Studio Code", "вс код": "Visual Studio Code", "вскод": "Visual Studio Code", "code": "Visual Studio Code",
-        "терминал": "Terminal", "финдер": "Finder", "настройки": "System Settings", "системные настройки": "System Settings",
-        "заметки": "Notes", "почта": "Mail", "календарь": "Calendar", "музыка": "Music", "спотифай": "Spotify",
-        "калькулятор": "Calculator", "фото": "Photos", "сообщения": "Messages", "карты": "Maps", "напоминания": "Reminders",
-        "просмотр": "Preview", "превью": "Preview", "мониторинг системы": "Activity Monitor", "диспетчер задач": "Activity Monitor",
-        "слак": "Slack", "дискорд": "Discord", "зум": "zoom.us", "zoom": "zoom.us", "фейстайм": "FaceTime", "айтерм": "iTerm",
-        "ворд": "Microsoft Word", "эксель": "Microsoft Excel", "ноушн": "Notion", "постман": "Postman", "докер": "Docker",
+        "chrome": "Google Chrome", "google": "Google Chrome",
+        "vs code": "Visual Studio Code", "vscode": "Visual Studio Code", "code": "Visual Studio Code",
+        "settings": "System Settings", "system preferences": "System Settings", "preferences": "System Settings",
+        "task manager": "Activity Monitor", "zoom": "zoom.us", "iterm": "iTerm",
+        "word": "Microsoft Word", "excel": "Microsoft Excel", "powerpoint": "Microsoft PowerPoint",
+        "outlook": "Microsoft Outlook", "teams": "Microsoft Teams",
     ]
 
     static let normalizedAliases = Dictionary(aliases.map { (normalize($0.key), $0.value) }, uniquingKeysWith: { first, _ in first })

@@ -7,7 +7,7 @@ import Testing
 
     @Test(.enabled(if: key != nil)) func haikuSaysHello() async throws {
         let client = URLSessionClaudeClient(apiKey: { LiveSmokeTests.key })
-        let request = MessagesRequest(model: "claude-haiku-5-5", system: "Отвечай одним словом.", messages: [["role": "user", "content": "Скажи привет одним словом"]], tools: [], effort: "low", maxTokens: 1024)
+        let request = MessagesRequest(model: "claude-haiku-5-5", system: "Answer in one word.", messages: [["role": "user", "content": "Say hello in one word"]], tools: [], effort: "low", maxTokens: 1024)
         var final: AssistantMessage?
         for try await e in client.stream(request) {
             if case .message(let m) = e { final = m }

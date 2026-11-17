@@ -33,24 +33,24 @@ enum InstalledApps {
     }
 
     static func notFound(_ query: String) -> ToolError {
-        .message("Не нашёл приложение «\(query)». Запущены: \(runningNames()).")
+        .message("Couldn't find an app called “\(query)”. Running: \(runningNames()).")
     }
 }
 
 struct ListRunningAppsTool: SafeTool {
     let name = "list_running_apps"
-    let description = "Список запущенных приложений с окнами."
+    let description = "List the running apps that have windows."
     let inputSchema = Schema.object([:])
 
     func run(_ input: JSONValue) async throws -> String {
-        "Запущены: " + InstalledApps.runningNames()
+        "Running: " + InstalledApps.runningNames()
     }
 }
 
 struct OpenAppTool: SafeTool {
     let name = "open_app"
-    let description = "Открыть или переключиться на приложение по названию, например Safari или Telegram."
-    let inputSchema = Schema.object(["app": Schema.string("Название приложения")])
+    let description = "Open or switch to an app by name, for example Safari or Telegram."
+    let inputSchema = Schema.object(["app": Schema.string("App name")])
 
     func run(_ input: JSONValue) async throws -> String {
         let query = try input.requiredString("app")
@@ -59,13 +59,13 @@ struct OpenAppTool: SafeTool {
         }
         if app.isRunning, let running = InstalledApps.running().first(where: { $0.localizedName == app.name }) {
             running.activate()
-            return "Переключился на \(app.name)."
+            return "Switched to \(app.name)."
         }
         guard let url = app.url else { throw InstalledApps.notFound(query) }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         _ = try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-        return "Открыл \(app.name)."
+        return "Opened \(app.name)."
     }
 }
 
@@ -73,36 +73,36 @@ struct QuitAppTool: Tool {
     let force: Bool
     var name: String { force ? "force_quit_app" : "quit_app" }
     var description: String {
-        force ? "Принудительно завершить зависшее приложение. Несохранённые данные пропадут."
-              : "Закрыть приложение. Оно само спросит про несохранённые документы."
+        force ? "Force quit a frozen app. Unsaved work will be lost."
+              : "Quit an app. It asks about unsaved documents itself."
     }
-    let inputSchema = Schema.object(["app": Schema.string("Название приложения")])
+    let inputSchema = Schema.object(["app": Schema.string("App name")])
 
     func risk(for input: JSONValue) -> ToolRisk { .needsConfirmation }
 
     func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        let query = input["app"]?.stringValue ?? "приложение"
+        let query = input["app"]?.stringValue ?? "the app"
         let shown = AppResolver.resolve(query, among: InstalledApps.candidates(runningOnly: true))?.name ?? query
-        return ConfirmationRequest(question: force ? "Принудительно завершить \(shown)?" : "Закрыть \(shown)?",
-                                   detail: force ? "Несохранённые данные пропадут." : nil)
+        return ConfirmationRequest(question: force ? "Force quit \(shown)?" : "Quit \(shown)?",
+                                   detail: force ? "Unsaved work will be lost." : nil)
     }
 
     func run(_ input: JSONValue) async throws -> String {
         let query = try input.requiredString("app")
         guard let app = AppResolver.resolve(query, among: InstalledApps.candidates(runningOnly: true)),
               let running = InstalledApps.running().first(where: { $0.localizedName == app.name }) else {
-            throw ToolError.message("«\(query)» не запущено. Запущены: \(InstalledApps.runningNames()).")
+            throw ToolError.message("“\(query)” isn't running. Running: \(InstalledApps.runningNames()).")
         }
         let ok = force ? running.forceTerminate() : running.terminate()
-        guard ok else { throw ToolError.message("\(app.name) не закрылось.") }
-        return force ? "Завершил \(app.name)." : "Попросил \(app.name) закрыться."
+        guard ok else { throw ToolError.message("\(app.name) didn't quit.") }
+        return force ? "Force quit \(app.name)." : "Asked \(app.name) to quit."
     }
 }
 
 struct OpenURLTool: Tool {
     let name = "open_url"
-    let description = "Открыть ссылку в браузере. Если передан не адрес, а текст, открывается поиск Google."
-    let inputSchema = Schema.object(["url": Schema.string("Адрес или поисковый запрос")])
+    let description = "Open a link in the browser. If the input is text rather than an address, a Google search opens."
+    let inputSchema = Schema.object(["url": Schema.string("Address or search query")])
 
     static func directURL(_ raw: String) -> URL? {
         if let u = URL(string: raw), let scheme = u.scheme, ["http", "https"].contains(scheme.lowercased()) { return u }
@@ -124,7 +124,7 @@ struct OpenURLTool: Tool {
     }
 
     func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        ConfirmationRequest(question: "Открыть ссылку?", detail: input["url"]?.stringValue)
+        ConfirmationRequest(question: "Open this link?", detail: input["url"]?.stringValue)
     }
 
     func run(_ input: JSONValue) async throws -> String {
@@ -137,7 +137,7 @@ struct OpenURLTool: Tool {
             c?.queryItems = [URLQueryItem(name: "q", value: raw)]
             url = c?.url
         }
-        guard let url, NSWorkspace.shared.open(url) else { throw ToolError.message("Не получилось открыть «\(raw)».") }
-        return "Открыл \(url.absoluteString)."
+        guard let url, NSWorkspace.shared.open(url) else { throw ToolError.message("Couldn't open “\(raw)”.") }
+        return "Opened \(url.absoluteString)."
     }
 }

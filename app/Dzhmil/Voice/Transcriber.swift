@@ -48,7 +48,7 @@ actor Transcriber {
     func transcribe(_ samples: [Float]) async throws -> String {
         try await prepare()
         guard let pipe else { return "" }
-        let options = DecodingOptions(task: .transcribe, language: nil, detectLanguage: true, skipSpecialTokens: true, withoutTimestamps: true)
+        let options = DecodingOptions(task: .transcribe, language: "en", detectLanguage: false, skipSpecialTokens: true, withoutTimestamps: true)
         let results: [TranscriptionResult] = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
         return results.map(\.text).joined(separator: " ")
     }

@@ -52,11 +52,11 @@ struct PointAtTool: SafeTool {
     var primaryHeight: @Sendable () -> CGFloat = { CGDisplayBounds(CGMainDisplayID()).height }
 
     let name = "point_at"
-    let description = "Показать пользователю место на экране: Джміль подлетит и укажет стрелкой. x и y — пиксели на последнем скриншоте из look_at_screen (от левого верхнего угла картинки). Вызывай, когда объясняешь, куда нажать, по одному шагу."
+    let description = "Show the user a spot on the screen: Dzhmil flies over and points at it with an arrow. x and y are pixels on the latest look_at_screen screenshot, from the top-left corner of the image. Use it when explaining where to click, one step at a time."
     let inputSchema = Schema.object([
-        "x": Schema.integer("Пиксель по горизонтали на последнем скриншоте"),
-        "y": Schema.integer("Пиксель по вертикали на последнем скриншоте"),
-        "label": Schema.string("Короткая подпись, например «Кнопка Run»"),
+        "x": Schema.integer("Horizontal pixel on the latest screenshot"),
+        "y": Schema.integer("Vertical pixel on the latest screenshot"),
+        "label": Schema.string("Short label, for example “Run button”"),
     ])
 
     func run(_ input: JSONValue) async throws -> String {
@@ -64,18 +64,18 @@ struct PointAtTool: SafeTool {
         let y = try input.requiredInt("y")
         let label = try input.requiredString("label")
         guard let frame = await memory.latest else {
-            throw ToolError.message("Сначала посмотри на экран через look_at_screen: координаты берутся с последнего скриншота.")
+            throw ToolError.message("Look at the screen with look_at_screen first: the coordinates come from the latest screenshot.")
         }
         guard now().timeIntervalSince(frame.takenAt) <= Self.maxAge else {
-            throw ToolError.message("Скриншот устарел. Посмотри на экран ещё раз через look_at_screen.")
+            throw ToolError.message("The screenshot is out of date. Look at the screen again with look_at_screen.")
         }
         guard (0...frame.pixelWidth).contains(x), (0...frame.pixelHeight).contains(y) else {
-            throw ToolError.message("Точка вне скриншота: картинка \(frame.pixelWidth)×\(frame.pixelHeight) px.")
+            throw ToolError.message("That point is outside the screenshot: the image is \(frame.pixelWidth)×\(frame.pixelHeight) px.")
         }
         let point = ScreenPointMapper.appKitPoint(pixel: CGPoint(x: x, y: y), frame: frame, primaryHeight: primaryHeight())
         guard await pointer(PointRequest(point: point, label: label)) else {
-            throw ToolError.message("Я сейчас спрятан и не могу показать. Позови меня и попроси ещё раз.")
+            throw ToolError.message("I'm hidden right now and can't show it. Call me back and ask again.")
         }
-        return "Показываю на «\(label)»."
+        return "Pointing at “\(label)”."
     }
 }

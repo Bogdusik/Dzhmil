@@ -2,7 +2,7 @@ import Foundation
 
 public struct SentenceSplitter: Sendable {
     static let terminators: Set<Character> = [".", "!", "?", "…"]
-    static let abbreviations: Set<String> = ["т.е", "т.д", "т.п", "т.к", "т.н", "e.g", "i.e", "др", "см", "напр", "т", "г"]
+    static let abbreviations: Set<String> = ["e.g", "i.e", "etc", "mr", "mrs", "ms", "dr", "vs", "approx"]
 
     private var buffer = ""
 

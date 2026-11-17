@@ -38,7 +38,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
         let out = try await lookTool(FakeCapturer()).runRich(["target": "window"])
         #expect(out.images.count == 1)
         #expect(out.images.first?.mediaType == "image/jpeg")
-        #expect(out.text == "Скриншот окна: Safari — Apple. Размер картинки 400×300 px.")
+        #expect(out.text == "Window screenshot: Safari — Apple. Image size 400×300 px.")
     }
 
     @Test func beforeCaptureRunsFirst() async throws {
@@ -53,7 +53,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
             _ = try await tool.runRich(["target": "window"])
             Issue.record("expected an error")
         } catch {
-            #expect(error.localizedDescription.contains("Запись экрана"))
+            #expect(error.localizedDescription.contains("Screen Recording"))
         }
     }
 
@@ -62,7 +62,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
         let out = try await lookTool(capturer).runRich(["target": "window"])
         #expect(capturer.log == ["hook", "capture:window", "capture:screen"])
         #expect(out.images.count == 1)
-        #expect(out.text.hasPrefix("Скриншот экрана"))
+        #expect(out.text.hasPrefix("Screenshot of the screen"))
     }
 
     @Test func refusedIndicatorPreventsCapture() async {
@@ -73,7 +73,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
             _ = try await tool.runRich(["target": "window"])
             Issue.record("expected refusal")
         } catch {
-            #expect(error.localizedDescription.contains("спрятан"))
+            #expect(error.localizedDescription.contains("hidden"))
         }
         #expect(capturer.log == ["hook"])
     }

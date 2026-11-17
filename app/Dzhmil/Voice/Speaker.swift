@@ -4,9 +4,12 @@ import DzhmilCore
 @MainActor
 final class Speaker: NSObject {
     private let synth = AVSpeechSynthesizer()
-    private lazy var voices: [VoiceInfo] = AVSpeechSynthesisVoice.speechVoices().map {
-        VoiceInfo(identifier: $0.identifier, language: $0.language, quality: $0.quality.rawValue, name: $0.name)
-    }
+    private lazy var voice: AVSpeechSynthesisVoice? = {
+        let voices = AVSpeechSynthesisVoice.speechVoices().map {
+            VoiceInfo(identifier: $0.identifier, language: $0.language, quality: $0.quality.rawValue, name: $0.name)
+        }
+        return VoiceSelector.pickEnglish(from: voices).flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) }
+    }()
     private var tracker = SpeechTracker<() -> Void>()
     private var startedBatch = false
     private var startActions: [ObjectIdentifier: () -> Void] = [:]
@@ -27,11 +30,8 @@ final class Speaker: NSObject {
             onStart?()
             return
         }
-        let language = LanguageGuess.guess(sentence)
-        let utterance = AVSpeechUtterance(string: SpeechText.forSpeech(sentence, language: language))
-        if let v = VoiceSelector.pick(language: language, from: voices) {
-            utterance.voice = AVSpeechSynthesisVoice(identifier: v.identifier)
-        }
+        let utterance = AVSpeechUtterance(string: sentence)
+        utterance.voice = voice
         utterance.rate = 0.52
         utterance.volume = volume
         if let onStart { startActions[ObjectIdentifier(utterance)] = onStart }

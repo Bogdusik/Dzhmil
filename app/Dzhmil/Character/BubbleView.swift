@@ -44,8 +44,8 @@ struct BubbleView: View {
             VStack(alignment: .leading, spacing: 9) {
                 Text(text)
                 HStack(spacing: 8) {
-                    BubbleButton(title: "Ответить", primary: true, action: onReply)
-                    BubbleButton(title: "Потом", action: onLater)
+                    BubbleButton(title: "Reply", primary: true, action: onReply)
+                    BubbleButton(title: "Later", action: onLater)
                 }
             }
 
@@ -64,16 +64,16 @@ struct BubbleView: View {
                     .background(BubbleStyle.code, in: RoundedRectangle(cornerRadius: 8))
                 }
                 HStack(spacing: 8) {
-                    BubbleButton(title: "Да", primary: true) { onAnswer(true) }
-                    BubbleButton(title: "Нет") { onAnswer(false) }
+                    BubbleButton(title: "Yes", primary: true) { onAnswer(true) }
+                    BubbleButton(title: "No") { onAnswer(false) }
                 }
-                Text("Можно ответить голосом")
+                Text("You can answer by voice")
                     .font(.system(size: 11))
                     .foregroundStyle(BubbleStyle.muted)
             }
 
         case .input:
-            TextField("Напиши Джмилю…", text: $draft)
+            TextField("Message Dzhmil…", text: $draft)
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .frame(width: 230)
@@ -88,7 +88,7 @@ struct BubbleView: View {
                     .focused($focused)
                     .onSubmit(send)
                     .onAppear { focused = true }
-                BubbleButton(title: "Сохранить", primary: true, action: send)
+                BubbleButton(title: "Save", primary: true, action: send)
             }
         }
     }

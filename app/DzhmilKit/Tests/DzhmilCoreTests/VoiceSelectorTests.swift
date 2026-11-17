@@ -3,54 +3,23 @@ import Testing
 
 @Suite struct VoiceSelectorTests {
     let voices = [
-        VoiceInfo(identifier: "ru.default", language: "ru-RU", quality: 1, name: "Milena"),
         VoiceInfo(identifier: "ru.premium", language: "ru-RU", quality: 3, name: "Milena (Premium)"),
-        VoiceInfo(identifier: "en.premium", language: "en-US", quality: 3, name: "Zoe (Premium)"),
-        VoiceInfo(identifier: "uk.b", language: "uk-UA", quality: 2, name: "Lesya B"),
-        VoiceInfo(identifier: "uk.a", language: "uk-UA", quality: 2, name: "Lesya A"),
+        VoiceInfo(identifier: "us.premium", language: "en-US", quality: 3, name: "Zoe (Premium)"),
+        VoiceInfo(identifier: "gb.b", language: "en-GB", quality: 2, name: "Serena B"),
+        VoiceInfo(identifier: "gb.a", language: "en-GB", quality: 2, name: "Serena A"),
+        VoiceInfo(identifier: "gb.low", language: "en-GB", quality: 1, name: "Daniel"),
     ]
 
-    @Test func picksBestQualityForLanguage() {
-        #expect(VoiceSelector.pick(language: "ru", from: voices)?.identifier == "ru.premium")
-        #expect(VoiceSelector.pick(language: "en", from: voices)?.identifier == "en.premium")
+    @Test func prefersBritishEnglishThenQualityThenName() {
+        #expect(VoiceSelector.pickEnglish(from: voices)?.identifier == "gb.a")
     }
 
-    @Test func sortsByNameOnTie() {
-        #expect(VoiceSelector.pick(language: "uk", from: voices)?.identifier == "uk.a")
+    @Test func fallsBackToAnyEnglish() {
+        let noBritish = voices.filter { $0.language != "en-GB" }
+        #expect(VoiceSelector.pickEnglish(from: noBritish)?.identifier == "us.premium")
     }
 
-    @Test func noVoiceForLanguage() {
-        #expect(VoiceSelector.pick(language: "de", from: voices) == nil)
-    }
-}
-
-@Suite struct SpeechTextTests {
-    @Test func russianVoicePronouncesName() {
-        #expect(SpeechText.forSpeech("Я Джміль! Джмілю нравится.", language: "ru") == "Я Джмиль! Джмилю нравится.")
-        #expect(SpeechText.forSpeech("I am Джміль.", language: "en") == "I am Dzhmil.")
-    }
-
-    @Test func ukrainianKeepsOriginal() {
-        #expect(SpeechText.forSpeech("Я Джміль.", language: "uk") == "Я Джміль.")
-    }
-}
-
-@Suite struct LanguageGuessTests {
-    @Test func detectsLanguages() {
-        #expect(LanguageGuess.guess("Привіт, як справи? Що робиш?") == "uk")
-        #expect(LanguageGuess.guess("Привет, как дела? Что делаешь?") == "ru")
-        #expect(LanguageGuess.guess("Hello, how are you?") == "en")
-    }
-
-    @Test func ownNameDoesNotMakeTextUkrainian() {
-        #expect(LanguageGuess.guess("Я Джміль, чем могу помочь?") == "ru")
-        #expect(LanguageGuess.guess("Спроси Джміля, он знает.") == "ru")
-        #expect(LanguageGuess.guess("Hi, I'm Джміль, your drone friend.") == "en")
-        #expect(LanguageGuess.guess("Привіт, я Джміль!") == "uk")
-    }
-
-    @Test func defaultsToRussian() {
-        #expect(LanguageGuess.guess("") == "ru")
-        #expect(LanguageGuess.guess("42") == "ru")
+    @Test func noEnglishVoice() {
+        #expect(VoiceSelector.pickEnglish(from: [voices[0]]) == nil)
     }
 }

@@ -1,8 +1,8 @@
 import Foundation
 
 public actor ToolExecutor {
-    static let declined = "Пользователь отказался, действие не выполнено."
-    static let noAnswer = "Пользователь не ответил, действие не выполнено."
+    static let declined = "The user declined; the action was not performed."
+    static let noAnswer = "The user didn't answer; the action was not performed."
 
     private let tools: [String: any Tool]
     private let confirmer: any ConfirmationProvider
@@ -34,7 +34,7 @@ public actor ToolExecutor {
 
     public func execute(_ use: ToolUse) async -> ToolOutcome {
         guard let tool = tools[use.name] else {
-            return ToolOutcome(content: "Нет такого инструмента: \(use.name)", isError: true, ran: false)
+            return ToolOutcome(content: "No such tool: \(use.name)", isError: true, ran: false)
         }
         if tool.risk(for: use.input) == .needsConfirmation {
             switch await confirm(tool.confirmation(for: use.input)) {

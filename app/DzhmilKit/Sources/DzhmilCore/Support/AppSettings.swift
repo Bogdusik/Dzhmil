@@ -13,9 +13,9 @@ public enum Chattiness: String, Codable, CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .rare: "Редко"
-        case .normal: "Нормально"
-        case .often: "Часто"
+        case .rare: "Rarely"
+        case .normal: "Normal"
+        case .often: "Often"
         }
     }
 }

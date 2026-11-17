@@ -13,18 +13,18 @@ struct StateGalleryView: View {
     @State private var eyeY: Double = 0
 
     static let gestures: [(String, DroneGesture)] = [
-        ("Оглядеться", .idle(.lookAround)), ("Наклон", .idle(.tilt)), ("Прыжок", .idle(.hop)), ("Зевок", .idle(.yawn)),
-        ("Бочка", .idle(.barrelRoll)), ("Радость", .wiggle), ("Испуг", .startle), ("Вспышка", .cameraFlash), ("Выравнивание", .steady(fromLeft: true)),
+        ("Look around", .idle(.lookAround)), ("Tilt", .idle(.tilt)), ("Hop", .idle(.hop)), ("Yawn", .idle(.yawn)),
+        ("Barrel roll", .idle(.barrelRoll)), ("Wiggle", .wiggle), ("Startle", .startle), ("Flash", .cameraFlash), ("Steady", .steady(fromLeft: true)),
         ("happy", .emotion(.happy)), ("laugh", .emotion(.laugh)), ("surprised", .emotion(.surprised)),
-        ("thinking", .emotion(.thinking)), ("sad", .emotion(.sad)), ("Сердечко", .heart),
+        ("thinking", .emotion(.thinking)), ("sad", .emotion(.sad)), ("Heart", .heart),
     ]
 
     static let samples: [(String, Bubble)] = [
-        ("Текст", .text("Привет, Богдан! Как дела? Заряд 87%, всё хорошо.")),
-        ("Вопрос", .question("Ты уже два часа за компьютером. Может, перерыв?")),
-        ("Подтверждение", .confirm(ConfirmationRequest(question: "Выполнить команду в терминале?", detail: "ls -la ~/Desktop/PROJECTS | head -20"))),
-        ("Ввод", .input),
-        ("Ключ", .onboardingKey("Привет! Я Джміль. Чтобы думать, мне нужен ключ API из Claude Console. Вставь его сюда.")),
+        ("Text", .text("Hi! How's it going? Battery at 87%, all good.")),
+        ("Question", .question("You've been at the computer for two hours. Time for a break?")),
+        ("Confirm", .confirm(ConfirmationRequest(question: "Run this command in Terminal?", detail: "ls -la ~/Desktop/PROJECTS | head -20"))),
+        ("Input", .input),
+        ("Key", .onboardingKey(Onboarding.greeting)),
     ]
 
     var body: some View {
@@ -43,7 +43,7 @@ struct StateGalleryView: View {
                 }
             }
             HStack {
-                Text("Крен")
+                Text("Bank")
                 Slider(value: $bank, in: -14...14)
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
@@ -53,7 +53,7 @@ struct StateGalleryView: View {
             }
             .buttonStyle(.bordered)
             HStack {
-                Text("Глаза")
+                Text("Eyes")
                 Slider(value: $eyeX, in: -3...3)
                 Slider(value: $eyeY, in: -2...2)
             }
@@ -61,13 +61,11 @@ struct StateGalleryView: View {
                 ForEach(Self.samples, id: \.0) { item in
                     Button(item.0) { bubble = item.1 }
                 }
-                Button("Без облачка") { bubble = nil }
+                Button("No bubble") { bubble = nil }
             }
             .buttonStyle(.bordered)
             HStack {
-                Button("Сказать ru") { speaker.enqueue("Привет! Я Джміль, твой дрон. Как дела?") }
-                Button("Сказать uk") { speaker.enqueue("Привіт! Я Джміль. Як справи?") }
-                Button("Сказать en") { speaker.enqueue("Hi! I am Джміль, your little drone.") }
+                Button("Speak") { speaker.enqueue("Hi! I'm Dzhmil, your little drone. How are you?") }
             }
             .buttonStyle(.bordered)
         }
@@ -115,7 +113,7 @@ enum StateGallery {
     static func show() {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: StateGalleryView()))
-            w.title = "Галерея состояний"
+            w.title = "State Gallery"
             w.isReleasedWhenClosed = false
             window = w
         }

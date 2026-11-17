@@ -101,24 +101,24 @@ public struct ProactiveScheduler: Codable, Equatable, Sendable {
 public enum PhraseWriter {
     public static func template(_ t: ProactiveTrigger) -> String {
         switch t {
-        case .dailyGreeting: "Привет! Как дела?"
-        case .breakReminder: "Ты уже два часа за компьютером. Может, перерыв?"
-        case .lowBattery(let n): "Заряд \(n)%. Пора на зарядку, как и мне."
-        case .timer(let label): "Напоминаю: \(label)"
+        case .dailyGreeting: "Hi! How's it going?"
+        case .breakReminder: "You've been at the computer for two hours. Time for a break?"
+        case .lowBattery(let n): "Battery at \(n)%. Time to charge, same as me."
+        case .timer(let label): "Reminder: \(label)"
         }
     }
 
     static func reason(_ t: ProactiveTrigger) -> String {
         switch t {
-        case .dailyGreeting: "первое приветствие за день, спроси, как у него дела"
-        case .breakReminder: "он уже два часа подряд за компьютером, мягко предложи перерыв"
-        case .lowBattery(let n): "заряд батареи \(n)% и не заряжается, напомни подключить зарядку"
-        case .timer(let label): "сработал таймер, который он просил поставить: «\(label)». Напомни об этом"
+        case .dailyGreeting: "first greeting of the day, ask how they are"
+        case .breakReminder: "they have been at the computer for two hours straight, gently suggest a break"
+        case .lowBattery(let n): "the battery is at \(n)% and not charging, remind them to plug in"
+        case .timer(let label): "a timer they asked for has gone off: “\(label)”. Remind them about it"
         }
     }
 
     public static func write(_ t: ProactiveTrigger, client: any ClaudeClient, settings: ConversationSettings, profile: String) async -> String {
-        let prompt = "[Служебно] Ты сам заговариваешь первым. Повод: \(reason(t)). Скажи одну-две короткие живые фразы, без кавычек."
+        let prompt = "[Note] You are speaking first. Reason: \(reason(t)). Say one or two short, lively sentences, without quotes."
         let request = MessagesRequest(model: settings.model, system: PromptBuilder.system(profile: profile),
                                       messages: [["role": "user", "content": .string(prompt)]], tools: [], effort: settings.effort, maxTokens: 4096)
         var final: AssistantMessage?

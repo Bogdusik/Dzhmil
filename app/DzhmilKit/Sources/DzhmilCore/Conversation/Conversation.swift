@@ -23,7 +23,7 @@ public actor Conversation {
     static let maxRounds = 8
     static let staleAfter: TimeInterval = 30 * 60
     static let maxMessages = 60
-    static let lostMessage = "Я запутался, давай попробуем по-другому."
+    static let lostMessage = "I got confused, let's try another way."
 
     private let client: any ClaudeClient
     private let executor: ToolExecutor

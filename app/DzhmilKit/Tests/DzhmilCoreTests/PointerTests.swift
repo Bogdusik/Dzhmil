@@ -101,10 +101,10 @@ final class PointRecorder: @unchecked Sendable {
         let (look, point) = tools(recorder)
         let shot = try await look.runRich(["target": "window"])
         #expect(shot.text.contains("400×300"))
-        let out = try await point.run(["x": 100, "y": 150, "label": "Кнопка Run"])
-        #expect(out.contains("Кнопка Run"))
+        let out = try await point.run(["x": 100, "y": 150, "label": "Run button"])
+        #expect(out.contains("Run button"))
         let primary = CGDisplayBounds(CGMainDisplayID()).height
-        #expect(recorder.points == [PointRequest(point: CGPoint(x: 300, y: primary - 250), label: "Кнопка Run")])
+        #expect(recorder.points == [PointRequest(point: CGPoint(x: 300, y: primary - 250), label: "Run button")])
         #expect(point.risk(for: ["x": 1, "y": 1, "label": "x"]) == .safe)
     }
 
@@ -150,7 +150,7 @@ final class PointRecorder: @unchecked Sendable {
             _ = try await point.run(["x": 10, "y": 10, "label": "x"])
             Issue.record("expected an error")
         } catch {
-            #expect(error.localizedDescription.contains("спрятан"))
+            #expect(error.localizedDescription.contains("hidden"))
         }
     }
 }

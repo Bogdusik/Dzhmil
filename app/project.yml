@@ -34,13 +34,13 @@ targets:
     info:
       path: Dzhmil/Info.plist
       properties:
-        CFBundleDisplayName: Джміль
+        CFBundleDisplayName: Dzhmil
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         LSUIElement: true
         LSMinimumSystemVersion: "15.0"
-        NSMicrophoneUsageDescription: Джміль слушает тебя, только пока ты держишь клавишу.
-        NSAppleEventsUsageDescription: Джміль управляет приложениями, когда ты его просишь.
+        NSMicrophoneUsageDescription: Dzhmil listens only while you hold the talk key.
+        NSAppleEventsUsageDescription: Dzhmil controls apps when you ask it to.
     entitlements:
       path: Dzhmil/Dzhmil.entitlements
       properties:

@@ -16,22 +16,22 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         self.companion = companion
         super.init()
         item.button?.image = Self.icon()
-        item.button?.toolTip = "Джміль"
+        item.button?.toolTip = "Dzhmil"
         menu.delegate = self
 
-        talkItem = add("Поговорить", #selector(talk))
-        add("Написать…", #selector(write))
+        talkItem = add("Talk", #selector(talk))
+        add("Type…", #selector(write))
         menu.addItem(.separator())
-        quietItem = add("Тихий режим", #selector(toggleQuiet))
-        hideItem = add("Спрятать", #selector(toggleHidden))
+        quietItem = add("Quiet Mode", #selector(toggleQuiet))
+        hideItem = add("Hide", #selector(toggleHidden))
         menu.addItem(.separator())
-        screenItem = add("Разрешить смотреть на экран…", #selector(allowScreen))
-        add("Настройки…", #selector(openSettings), key: ",")
+        screenItem = add("Allow Screen Access…", #selector(allowScreen))
+        add("Settings…", #selector(openSettings), key: ",")
         #if DEBUG
-        add("Галерея состояний", #selector(openGallery))
+        add("State Gallery", #selector(openGallery))
         #endif
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Выйти", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
     }
 
@@ -44,9 +44,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        talkItem.title = companion.isListening ? "Закончить и отправить" : "Поговорить"
+        talkItem.title = companion.isListening ? "Stop and Send" : "Talk"
         quietItem.state = companion.director.machine.quiet ? .on : .off
-        hideItem.title = companion.director.isHidden ? "Показать" : "Спрятать"
+        hideItem.title = companion.director.isHidden ? "Show" : "Hide"
         screenItem.isHidden = CGPreflightScreenCaptureAccess()
     }
 

@@ -27,14 +27,14 @@ import Testing
     }
 
     @Test func userMessages() {
-        #expect(ClaudeError.missingKey.userMessage == "Мне нужен ключ API. Открой настройки.")
-        #expect(ClaudeError.invalidKey.userMessage == "Ключ API не подходит. Проверь его в настройках.")
-        #expect(ClaudeError.insufficientCredit.userMessage == "На балансе Claude закончились деньги. Пополни его в Console.")
-        #expect(ClaudeError.rateLimited.userMessage == "Мозг перегружен, попробуй через минуту.")
-        #expect(ClaudeError.overloaded.userMessage == "Мозг перегружен, попробуй через минуту.")
-        #expect(ClaudeError.network.userMessage == "Не могу связаться с мозгом, проверь интернет.")
-        #expect(ClaudeError.refusal.userMessage == "Об этом я говорить не буду.")
-        #expect(ClaudeError.api(status: 500, message: "x").userMessage == "Что-то сломалось (код 500).")
+        #expect(ClaudeError.missingKey.userMessage == "I need an API key. Open Settings.")
+        #expect(ClaudeError.invalidKey.userMessage == "That API key doesn't work. Check it in Settings.")
+        #expect(ClaudeError.insufficientCredit.userMessage == "Your Claude balance has run out. Top it up in the Console.")
+        #expect(ClaudeError.rateLimited.userMessage == "My brain is overloaded, try again in a minute.")
+        #expect(ClaudeError.overloaded.userMessage == "My brain is overloaded, try again in a minute.")
+        #expect(ClaudeError.network.userMessage == "I can't reach my brain. Check your internet.")
+        #expect(ClaudeError.refusal.userMessage == "I won't talk about that.")
+        #expect(ClaudeError.api(status: 500, message: "x").userMessage == "Something broke (code 500).")
     }
 }
 
@@ -94,7 +94,7 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
         data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
 
         event: content_block_delta
-        data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Привет"}}
+        data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
 
         event: content_block_stop
         data: {"type":"content_block_stop","index":0}
@@ -113,7 +113,7 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
             Issue.record("unexpected events \(events)")
             return
         }
-        #expect(t == "Привет")
-        #expect(m.text == "Привет")
+        #expect(t == "Hello")
+        #expect(m.text == "Hello")
     }
 }

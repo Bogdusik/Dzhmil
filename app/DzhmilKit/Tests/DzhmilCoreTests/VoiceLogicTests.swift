@@ -4,15 +4,14 @@ import Testing
 
 @Suite struct TranscriptFilterTests {
     @Test func keepsRealSpeech() {
-        #expect(TranscriptFilter.clean(" Привет, как дела? ") == "Привет, как дела?")
-        #expect(TranscriptFilter.clean("<|ru|> Открой сафари") == "Открой сафари")
-        #expect(TranscriptFilter.clean("<|startoftranscript|><|uk|><|transcribe|> Як справи?<|endoftext|>") == "Як справи?")
+        #expect(TranscriptFilter.clean(" Hi, how are you? ") == "Hi, how are you?")
+        #expect(TranscriptFilter.clean("<|en|> Open Safari") == "Open Safari")
+        #expect(TranscriptFilter.clean("<|startoftranscript|><|en|><|transcribe|> What's up?<|endoftext|>") == "What's up?")
     }
 
     @Test(arguments: [
-        "", "   ", "[BLANK_AUDIO]", "(музыка)", "[Музыка]", "Продолжение следует...",
-        "Субтитры сделал DimaTorzok", "Субтитры создавал DimaTorzok", "Редактор субтитров А.Синецкая",
-        "Спасибо за просмотр!", "Thank you for watching.", "Дякую за перегляд!", "а", "...",
+        "", "   ", "[BLANK_AUDIO]", "(music)", "[Music]", "Thank you for watching.", "Thanks for watching!",
+        "Subtitles by the Amara.org community", "a", "...",
     ])
     func dropsNoiseAndHallucinations(_ raw: String) {
         #expect(TranscriptFilter.clean(raw) == nil)
@@ -20,13 +19,13 @@ import Testing
 }
 
 @Suite struct HallucinationTests {
-    @Test(arguments: ["you", "Подписывайтесь на канал!", "Всем пока!"])
+    @Test(arguments: ["you", "Please subscribe!", "Bye."])
     func dropsWholeUtteranceHallucinations(_ raw: String) {
         #expect(TranscriptFilter.clean(raw) == nil)
     }
 
     @Test func keepsShortThanks() {
-        #expect(TranscriptFilter.clean("Спасибо!") == "Спасибо!")
+        #expect(TranscriptFilter.clean("Thanks!") == "Thanks!")
     }
 }
 
@@ -135,14 +134,14 @@ import Testing
 }
 
 @Suite struct YesNoParserTests {
-    @Test(arguments: ["Да", "да, закрывай", "ага", "так", "yes", "давай", "конечно", "угу", "Да.", "так, роби", "да, давай"])
+    @Test(arguments: ["Yes", "yes, close it", "yeah", "yep", "sure", "OK", "okay", "go ahead", "do it", "Yes.", "yes please", "sure, go ahead"])
     func yes(_ s: String) { #expect(YesNoParser.parse(s) == true) }
 
-    @Test(arguments: ["нет", "ні", "no", "не надо", "отмена", "стоп", "да нет, не надо", "Нет!", "не треба"])
+    @Test(arguments: ["no", "nope", "nah", "cancel", "stop", "don't", "no, don't do that", "No!", "never mind"])
     func no(_ s: String) { #expect(YesNoParser.parse(s) == false) }
 
-    @Test(arguments: ["может быть", "а что это", "", "да подожди, что это за команда", "а что точно она делает", "так, а зачем",
-                      "А можно показать целиком?", "да, но сначала покажи, что внутри"])
+    @Test(arguments: ["maybe", "what is that", "", "wait, what does that command do", "what exactly will it do", "yes, but why",
+                      "Can you show me all of it?", "yes, but first show me what's inside"])
     func unclear(_ s: String) { #expect(YesNoParser.parse(s) == nil) }
 }
 

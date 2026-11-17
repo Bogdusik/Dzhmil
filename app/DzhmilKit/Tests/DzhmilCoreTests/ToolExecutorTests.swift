@@ -17,7 +17,7 @@ struct RecordingTool: Tool {
     let runs = Counter()
 
     func risk(for input: JSONValue) -> ToolRisk { dangerous ? .needsConfirmation : .safe }
-    func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "Сделать \(name)?", detail: nil) }
+    func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "Do \(name)?", detail: nil) }
     func run(_ input: JSONValue) async throws -> String {
         await runs.increment()
         if let failure { throw ToolError.message(failure) }
@@ -33,7 +33,7 @@ struct PictureTool: Tool {
     func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "", detail: nil) }
     func run(_ input: JSONValue) async throws -> String { "unused" }
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
-        ToolRichOutput(text: "Скриншот", images: [ToolImage(mediaType: "image/jpeg", base64: "AAAA")])
+        ToolRichOutput(text: "Screenshot", images: [ToolImage(mediaType: "image/jpeg", base64: "AAAA")])
     }
 }
 
@@ -79,7 +79,7 @@ struct AnsweringConfirmer: ConfirmationProvider {
     @Test func dangerousToolNeverRunsOnNo() async {
         let tool = RecordingTool(name: "danger", dangerous: true)
         let outcome = await ToolExecutor(tools: [tool], confirmer: ScriptedConfirmer(mode: .no)).execute(use("danger"))
-        #expect(outcome == ToolOutcome(content: "Пользователь отказался, действие не выполнено.", isError: false, ran: false))
+        #expect(outcome == ToolOutcome(content: "The user declined; the action was not performed.", isError: false, ran: false))
         #expect(await tool.runs.value == 0)
     }
 
@@ -87,7 +87,7 @@ struct AnsweringConfirmer: ConfirmationProvider {
         let tool = RecordingTool(name: "danger", dangerous: true)
         let started = Date()
         let outcome = await ToolExecutor(tools: [tool], confirmer: ScriptedConfirmer(mode: .never), confirmTimeout: .milliseconds(200)).execute(use("danger"))
-        #expect(outcome == ToolOutcome(content: "Пользователь не ответил, действие не выполнено.", isError: false, ran: false))
+        #expect(outcome == ToolOutcome(content: "The user didn't answer; the action was not performed.", isError: false, ran: false))
         #expect(await tool.runs.value == 0)
         #expect(Date().timeIntervalSince(started) < 2)
     }
@@ -106,7 +106,7 @@ struct AnsweringConfirmer: ConfirmationProvider {
         let executor = ToolExecutor(tools: [tool], confirmer: AnsweringConfirmer(answerAfter: .seconds(1000)),
                                     confirmTimeout: .milliseconds(100), answerGrace: .milliseconds(300))
         let outcome = await executor.execute(use("danger"))
-        #expect(outcome.content == "Пользователь не ответил, действие не выполнено.")
+        #expect(outcome.content == "The user didn't answer; the action was not performed.")
         #expect(await tool.runs.value == 0)
         #expect(Date().timeIntervalSince(started) < 2)
     }
@@ -150,7 +150,7 @@ struct AnsweringConfirmer: ConfirmationProvider {
 
     @Test func imageToolReturnsImages() async {
         let outcome = await ToolExecutor(tools: [PictureTool()], confirmer: ScriptedConfirmer(mode: .yes)).execute(ToolUse(id: "t", name: "look", input: [:]))
-        #expect(outcome.content == "Скриншот")
+        #expect(outcome.content == "Screenshot")
         #expect(outcome.images == [ToolImage(mediaType: "image/jpeg", base64: "AAAA")])
         #expect(outcome.ran && !outcome.isError)
     }
@@ -163,7 +163,7 @@ struct AnsweringConfirmer: ConfirmationProvider {
     @Test func limitTruncates() {
         let s = ToolOutput.limit(String(repeating: "a", count: 10_000))
         #expect(s.count <= 4100)
-        #expect(s.hasSuffix("…[обрезано, всего 10000 символов]"))
+        #expect(s.hasSuffix("…[cut, 10000 characters in total]"))
         #expect(ToolOutput.limit("short") == "short")
     }
 }

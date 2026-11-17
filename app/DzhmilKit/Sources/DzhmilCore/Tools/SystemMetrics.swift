@@ -14,15 +14,15 @@ public struct SystemStatus: Sendable {
     public var summary: String {
         var lines: [String] = []
         if let b = batteryPercent {
-            lines.append("Батарея: \(b)%" + (isCharging ? ", заряжается." : ", от батареи."))
+            lines.append("Battery: \(b)%" + (isCharging ? ", charging." : ", on battery."))
         } else {
-            lines.append("Батарея: нет, питание от сети.")
+            lines.append("Battery: none, on mains power.")
         }
-        lines.append("Процессор: загружен на \(cpuLoadPercent)%.")
-        lines.append(String(format: "Память: занято %.1f из %.0f ГБ.", memoryUsedGB, memoryTotalGB))
-        lines.append(String(format: "Диск: свободно %.0f ГБ.", diskFreeGB))
+        lines.append("CPU: \(cpuLoadPercent)% load.")
+        lines.append(String(format: "Memory: %.1f of %.0f GB used.", memoryUsedGB, memoryTotalGB))
+        lines.append(String(format: "Disk: %.0f GB free.", diskFreeGB))
         let days = Int(uptime) / 86400, hours = (Int(uptime) % 86400) / 3600, minutes = (Int(uptime) % 3600) / 60
-        lines.append("Без перезагрузки: \(days) дн \(hours) ч \(minutes) мин.")
+        lines.append("Uptime: \(days) d \(hours) h \(minutes) min.")
         return lines.joined(separator: "\n")
     }
 }

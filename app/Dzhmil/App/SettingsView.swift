@@ -23,7 +23,7 @@ final class SettingsModel {
         self.companion = companion
         settings = companion.settings
         profile = companion.profileStore.load()
-        keyStatus = companion.keychain.read() == nil ? "Ключ не сохранён." : "Ключ сохранён в Keychain."
+        keyStatus = companion.keychain.read() == nil ? "No key saved." : "Key saved in the Keychain."
         profileObserver = NotificationCenter.default.addObserver(forName: ProfileStore.didChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reloadProfile() }
         }
@@ -42,20 +42,20 @@ final class SettingsModel {
         do {
             try companion.keychain.save(key)
             keyDraft = ""
-            keyStatus = "Ключ сохранён в Keychain."
+            keyStatus = "Key saved in the Keychain."
         } catch {
-            keyStatus = "Не получилось сохранить ключ."
+            keyStatus = "Couldn't save the key."
         }
     }
 
     func checkKey() {
         if !keyDraft.trimmingCharacters(in: .whitespaces).isEmpty { saveKey() }
         checking = true
-        keyStatus = "Проверяю…"
+        keyStatus = "Checking…"
         Task {
             let error = await companion.checkKey()
             checking = false
-            keyStatus = error?.userMessage ?? "Ключ работает."
+            keyStatus = error?.userMessage ?? "The key works."
         }
     }
 
@@ -64,9 +64,9 @@ final class SettingsModel {
             profileDirty = false
             try companion.profileStore.save(profile)
             companion.profileChanged()
-            profileStatus = "Сохранено."
+            profileStatus = "Saved."
         } catch {
-            profileStatus = "Не получилось сохранить."
+            profileStatus = "Couldn't save."
         }
     }
 
@@ -76,7 +76,7 @@ final class SettingsModel {
             settings.launchAtLogin = on
             loginError = ""
         } catch {
-            loginError = "macOS не разрешил: \(error.localizedDescription)"
+            loginError = "macOS didn't allow it: \(error.localizedDescription)"
             settings.launchAtLogin = SMAppService.mainApp.status == .enabled
         }
     }
@@ -85,54 +85,54 @@ final class SettingsModel {
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
-    private let modelTitles = ["claude-opus-5-5": "Claude Opus 5.5 (умнее)", "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5 (дешевле)"]
-    private let effortTitles = ["low": "Быстро", "medium": "Средне", "high": "Вдумчиво"]
+    private let modelTitles = ["claude-opus-5-5": "Claude Opus 5.5 (smartest)", "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5 (cheapest)"]
+    private let effortTitles = ["low": "Quick", "medium": "Balanced", "high": "Thorough"]
 
     var body: some View {
         Form {
-            Section("Мозг") {
-                SecureField("Ключ API", text: $model.keyDraft, prompt: Text("sk-ant-…"))
+            Section("Brain") {
+                SecureField("API key", text: $model.keyDraft, prompt: Text("sk-ant-…"))
                     .onSubmit { model.saveKey() }
                 HStack {
-                    Button("Сохранить") { model.saveKey() }
-                    Button("Проверить") { model.checkKey() }.disabled(model.checking)
+                    Button("Save") { model.saveKey() }
+                    Button("Check") { model.checkKey() }.disabled(model.checking)
                     Spacer()
                     Text(model.keyStatus).foregroundStyle(.secondary).font(.callout)
                 }
-                Picker("Модель", selection: $model.settings.model) {
+                Picker("Model", selection: $model.settings.model) {
                     ForEach(AppSettings.models, id: \.self) { Text(modelTitles[$0] ?? $0).tag($0) }
                 }
-                Picker("Как думать", selection: $model.settings.effort) {
+                Picker("Thinking", selection: $model.settings.effort) {
                     ForEach(AppSettings.efforts, id: \.self) { Text(effortTitles[$0] ?? $0).tag($0) }
                 }
             }
-            Section("Голос") {
-                KeyboardShortcuts.Recorder("Говорить:", name: .pushToTalk)
-                Toggle("Отвечать голосом", isOn: $model.settings.voiceEnabled)
-                Slider(value: $model.settings.voiceVolume, in: 0...1) { Text("Громкость") }
+            Section("Voice") {
+                KeyboardShortcuts.Recorder("Talk:", name: .pushToTalk)
+                Toggle("Speak replies", isOn: $model.settings.voiceEnabled)
+                Slider(value: $model.settings.voiceVolume, in: 0...1) { Text("Volume") }
                     .disabled(!model.settings.voiceEnabled)
             }
-            Section("Характер") {
-                Picker("Заговаривает первым", selection: $model.settings.chattiness) {
+            Section("Personality") {
+                Picker("Speaks first", selection: $model.settings.chattiness) {
                     ForEach(Chattiness.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
-                Toggle("Звук винтов", isOn: $model.settings.propellerSound)
+                Toggle("Propeller sound", isOn: $model.settings.propellerSound)
             }
-            Section("Система") {
-                Toggle("Запускать при входе", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
+            Section("System") {
+                Toggle("Open at login", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 if !model.loginError.isEmpty {
                     Text(model.loginError).foregroundStyle(.red).font(.callout)
                 }
             }
-            Section("О тебе") {
+            Section("About you") {
                 TextEditor(text: $model.profile)
                     .font(.body)
                     .frame(minHeight: 90)
                 HStack {
-                    Button("Сохранить") { model.saveProfile() }
+                    Button("Save") { model.saveProfile() }
                     Text(model.profileStatus).foregroundStyle(.secondary).font(.callout)
                 }
-                Text("Джміль читает это перед каждым разговором. Файл лежит в ~/Library/Application Support/Dzhmil/profile.md.")
+                Text("Dzhmil reads this before every conversation. The file is ~/Library/Application Support/Dzhmil/profile.md.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -149,7 +149,7 @@ enum SettingsWindow {
     static func show(companion: Companion) {
         if window == nil {
             let w = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: SettingsModel(companion: companion))))
-            w.title = "Настройки Джмиля"
+            w.title = "Dzhmil Settings"
             w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false
             window = w

@@ -15,17 +15,17 @@ import Testing
         var a = StreamAccumulator()
         var deltas: [String] = []
         for e in [start, blockStart(0, #"{"type":"text","text":""}"#),
-                  delta(0, #"{"type":"text_delta","text":"При"}"#),
-                  delta(0, #"{"type":"text_delta","text":"вет"}"#),
+                  delta(0, #"{"type":"text_delta","text":"Hel"}"#),
+                  delta(0, #"{"type":"text_delta","text":"lo"}"#),
                   blockStop(0), messageDelta("end_turn"), stop] {
             if let d = try a.consume(e) { deltas.append(d) }
         }
-        #expect(deltas == ["При", "вет"])
+        #expect(deltas == ["Hel", "lo"])
         let m = try a.finish()
-        #expect(m.text == "Привет")
+        #expect(m.text == "Hello")
         #expect(m.stopReason == "end_turn")
-        #expect(m.content == [["type": "text", "text": "Привет"]])
-        #expect(m.asHistoryEntry == ["role": "assistant", "content": [["type": "text", "text": "Привет"]]])
+        #expect(m.content == [["type": "text", "text": "Hello"]])
+        #expect(m.asHistoryEntry == ["role": "assistant", "content": [["type": "text", "text": "Hello"]]])
     }
 
     @Test func thinkingAndToolUseAreKeptExactly() throws {
@@ -86,7 +86,7 @@ import Testing
 
     @Test func streamWithoutStopReasonIsIncomplete() throws {
         var a = StreamAccumulator()
-        for e in [start, blockStart(0, #"{"type":"text","text":""}"#), delta(0, #"{"type":"text_delta","text":"Пол"}"#)] {
+        for e in [start, blockStart(0, #"{"type":"text","text":""}"#), delta(0, #"{"type":"text_delta","text":"Hal"}"#)] {
             _ = try a.consume(e)
         }
         #expect(throws: ClaudeError.incomplete) { try a.finish() }

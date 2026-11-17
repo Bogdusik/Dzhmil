@@ -53,13 +53,13 @@ enum Schema {
 extension JSONValue {
     func requiredString(_ key: String) throws -> String {
         guard let s = self[key]?.stringValue, !s.trimmingCharacters(in: .whitespaces).isEmpty else {
-            throw ToolError.message("Не хватает параметра \(key).")
+            throw ToolError.message("Missing parameter \(key).")
         }
         return s
     }
 
     func requiredInt(_ key: String) throws -> Int {
-        guard let n = self[key]?.intValue else { throw ToolError.message("Не хватает параметра \(key).") }
+        guard let n = self[key]?.intValue else { throw ToolError.message("Missing parameter \(key).") }
         return n
     }
 }
@@ -73,9 +73,9 @@ extension SafeTool {
 enum AppleScript {
     static func run(_ script: String, timeout: Duration = .seconds(30)) async throws -> String {
         let r = await ProcessRunner.run("/usr/bin/osascript", ["-e", script], timeout: timeout)
-        if r.timedOut { throw ToolError.message("Скрипт не завершился за 30 секунд.") }
+        if r.timedOut { throw ToolError.message("The script didn't finish in 30 seconds.") }
         if r.exitCode != 0 {
-            throw ToolError.message(r.stderr.isEmpty ? "AppleScript завершился с кодом \(r.exitCode)." : r.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            throw ToolError.message(r.stderr.isEmpty ? "AppleScript exited with code \(r.exitCode)." : r.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         return r.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }

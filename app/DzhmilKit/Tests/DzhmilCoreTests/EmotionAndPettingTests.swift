@@ -21,32 +21,32 @@ import Testing
     }
 
     @Test func plainTextPassesThrough() {
-        #expect(run(["Привет, ", "как дела?"]) == [.text("Привет, как дела?")])
+        #expect(run(["Hi, ", "how are you?"]) == [.text("Hi, how are you?")])
     }
 
     @Test func tagBecomesEmotionAndEatsOneSpace() {
-        #expect(run(["<happy> Ура!"]) == [.emotion(.happy), .text("Ура!")])
+        #expect(run(["<happy> Yay!"]) == [.emotion(.happy), .text("Yay!")])
     }
 
     @Test func tagSplitAcrossDeltas() {
-        #expect(run(["Ну ", "<sur", "pri", "sed>", "Ого!"]) == [.text("Ну "), .emotion(.surprised), .text("Ого!")])
+        #expect(run(["Well ", "<sur", "pri", "sed>", "Wow!"]) == [.text("Well "), .emotion(.surprised), .text("Wow!")])
     }
 
     @Test(arguments: Emotion.allCases)
     func everyEmotionParses(_ e: Emotion) {
-        #expect(run(["<\(e.rawValue)>Да."]) == [.emotion(e), .text("Да.")])
+        #expect(run(["<\(e.rawValue)>Yes."]) == [.emotion(e), .text("Yes.")])
     }
 
     @Test func unknownTagIsDropped() {
-        #expect(run(["<wink>Ладно."]) == [.text("Ладно.")])
+        #expect(run(["<wink>Fine."]) == [.text("Fine.")])
     }
 
     @Test func comparisonsStayText() {
-        #expect(run(["Если a < b, то", " 3<5 и x<10."]) == [.text("Если a < b, то 3<5 и x<10.")])
+        #expect(run(["If a < b, then", " 3<5 and x<10."]) == [.text("If a < b, then 3<5 and x<10.")])
     }
 
     @Test func unfinishedTagIsFlushedAsText() {
-        #expect(run(["Конец <hap"]) == [.text("Конец <hap")])
+        #expect(run(["The end <hap"]) == [.text("The end <hap")])
     }
 
     @Test func longAngleTextStaysText() {

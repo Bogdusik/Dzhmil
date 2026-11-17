@@ -22,8 +22,8 @@ import Testing
 
     @Test func hiddenDroneKeepsEverythingForLater() {
         var s = ProactiveScheduler()
-        #expect(s.decide(ctx(at(16, 9), battery: 10, hidden: true, timers: ["чай"]), chattiness: .often) == nil)
-        #expect(s.decide(ctx(at(16, 9, 1), battery: 10), chattiness: .often) == .timer("чай"))
+        #expect(s.decide(ctx(at(16, 9), battery: 10, hidden: true, timers: ["tea"]), chattiness: .often) == nil)
+        #expect(s.decide(ctx(at(16, 9, 1), battery: 10), chattiness: .often) == .timer("tea"))
         #expect(s.decide(ctx(at(16, 9, 2), battery: 10), chattiness: .often) == .lowBattery(10))
         var fresh = ProactiveScheduler()
         #expect(fresh.decide(ctx(at(16, 9), hidden: true), chattiness: .often) == nil)
@@ -88,9 +88,9 @@ import Testing
     @Test func timersAlwaysFire() {
         var s = ProactiveScheduler()
         _ = s.decide(ctx(at(16, 9)), chattiness: .rare)
-        #expect(s.decide(ctx(at(16, 23, 30), quiet: true, timers: ["чайник"]), chattiness: .rare) == .timer("чайник"))
-        #expect(s.decide(ctx(at(16, 23, 31), busy: true, timers: ["окно"]), chattiness: .rare) == nil)
-        #expect(s.decide(ctx(at(16, 23, 32)), chattiness: .rare) == .timer("окно"))
+        #expect(s.decide(ctx(at(16, 23, 30), quiet: true, timers: ["kettle"]), chattiness: .rare) == .timer("kettle"))
+        #expect(s.decide(ctx(at(16, 23, 31), busy: true, timers: ["window"]), chattiness: .rare) == nil)
+        #expect(s.decide(ctx(at(16, 23, 32)), chattiness: .rare) == .timer("window"))
     }
 
     @Test func roundTripsThroughJSON() throws {
@@ -106,30 +106,30 @@ import Testing
     let settings = ConversationSettings(model: "claude-haiku-5-5", effort: "low")
 
     @Test func templates() {
-        #expect(PhraseWriter.template(.dailyGreeting) == "Привет! Как дела?")
-        #expect(PhraseWriter.template(.breakReminder) == "Ты уже два часа за компьютером. Может, перерыв?")
-        #expect(PhraseWriter.template(.lowBattery(12)) == "Заряд 12%. Пора на зарядку, как и мне.")
-        #expect(PhraseWriter.template(.timer("чайник")) == "Напоминаю: чайник")
+        #expect(PhraseWriter.template(.dailyGreeting) == "Hi! How's it going?")
+        #expect(PhraseWriter.template(.breakReminder) == "You've been at the computer for two hours. Time for a break?")
+        #expect(PhraseWriter.template(.lowBattery(12)) == "Battery at 12%. Time to charge, same as me.")
+        #expect(PhraseWriter.template(.timer("kettle")) == "Reminder: kettle")
     }
 
     @Test func fallsBackToTemplateOnError() async {
         let client = FakeClaudeClient([.fail(.network)])
-        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Привет! Как дела?")
+        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Hi! How's it going?")
     }
 
     @Test func emotionTagsAreNotSpoken() async {
-        let client = FakeClaudeClient([Fixtures.text("<happy> Доброе утро! <thinking>Как спалось?")])
-        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Доброе утро! Как спалось?")
+        let client = FakeClaudeClient([Fixtures.text("<happy> Good morning! <thinking>Did you sleep well?")])
+        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Good morning! Did you sleep well?")
     }
 
     @Test func keepsFirstTwoSentences() async {
-        let client = FakeClaudeClient([Fixtures.text("Доброе утро! Как спалось? Я уже проснулся. Ещё")])
-        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Доброе утро! Как спалось?")
+        let client = FakeClaudeClient([Fixtures.text("Good morning! Did you sleep well? I'm already up. More")])
+        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Good morning! Did you sleep well?")
         #expect(client.requests.first?.tools.isEmpty == true)
     }
 
     @Test func emptyReplyFallsBack() async {
         let client = FakeClaudeClient([Fixtures.text("   ")])
-        #expect(await PhraseWriter.write(.timer("чайник"), client: client, settings: settings, profile: "") == "Напоминаю: чайник")
+        #expect(await PhraseWriter.write(.timer("kettle"), client: client, settings: settings, profile: "") == "Reminder: kettle")
     }
 }
