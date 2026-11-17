@@ -67,6 +67,21 @@ final class PointRecorder: @unchecked Sendable {
         #expect(a.end == CGPoint(x: 80, y: 0))
     }
 
+    @Test func arcBowsUpwardFromTheMiddle() {
+        let start = CGPoint(x: 0, y: 0), end = CGPoint(x: 100, y: 0)
+        let c = PointerLayout.arcControl(from: start, to: end)
+        #expect(abs(c.x - 50) < 0.001)
+        #expect(abs(c.y - 22) < 0.001)
+        let down = PointerLayout.arcControl(from: end, to: start)
+        #expect(abs(down.y - 22) < 0.001)
+    }
+
+    @Test func verticalArcBowsSideways() {
+        let c = PointerLayout.arcControl(from: CGPoint(x: 0, y: 100), to: .zero)
+        #expect(abs(c.y - 50) < 0.001)
+        #expect(abs(abs(c.x) - 22) < 0.001)
+    }
+
     @Test func noArrowWhenTooClose() {
         #expect(PointerLayout.arrow(from: .zero, to: CGPoint(x: 50, y: 0), droneRadius: 40, ringRadius: 20) == nil)
     }

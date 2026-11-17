@@ -1,6 +1,10 @@
 #if DEBUG
 import Foundation
 import Darwin
+import AppKit
+import ImageIO
+import ScreenCaptureKit
+import UniformTypeIdentifiers
 import DzhmilCore
 
 enum DebugTools {
@@ -20,6 +24,22 @@ enum DebugTools {
             print("memory: \(footprintMB()) MB")
         } catch {
             print("error: \(error)")
+        }
+    }
+
+    static func screenshot(to url: URL) async {
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) else { return }
+            let config = SCStreamConfiguration()
+            config.width = display.width * 2
+            config.height = display.height * 2
+            let image = try await SCScreenshotManager.captureImage(contentFilter: SCContentFilter(display: display, excludingWindows: []), configuration: config)
+            guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, image, nil)
+            CGImageDestinationFinalize(dest)
+        } catch {
+            print("screenshot failed: \(error)")
         }
     }
 

@@ -1,7 +1,7 @@
 import CoreGraphics
 
 public enum PointerLayout {
-    static let distance: CGFloat = 130
+    static let distance: CGFloat = 170
 
     public static func droneSpot(target: CGPoint, visibleFrame: CGRect, droneSize: CGSize) -> CGPoint {
         let d = distance / 2.squareRoot()
@@ -25,5 +25,21 @@ public enum PointerLayout {
         let uy = dy / length
         return (CGPoint(x: drone.x + ux * droneRadius, y: drone.y + uy * droneRadius),
                 CGPoint(x: target.x - ux * ringRadius, y: target.y - uy * ringRadius))
+    }
+
+    static let bow: CGFloat = 0.22
+
+    public static func arcControl(from start: CGPoint, to end: CGPoint) -> CGPoint {
+        let dx = end.x - start.x
+        let dy = end.y - start.y
+        let length = hypot(dx, dy)
+        guard length > 0 else { return start }
+        var nx = -dy / length
+        var ny = dx / length
+        if ny < 0 || (ny == 0 && nx < 0) {
+            nx = -nx
+            ny = -ny
+        }
+        return CGPoint(x: (start.x + end.x) / 2 + nx * length * bow, y: (start.y + end.y) / 2 + ny * length * bow)
     }
 }
