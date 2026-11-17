@@ -152,6 +152,7 @@ enum SettingsWindow {
             w.title = "Dzhmil Settings"
             w.styleMask = [.titled, .closable, .miniaturizable]
             w.isReleasedWhenClosed = false
+            ScreenPrivacy.apply(to: w)
             window = w
         }
         (window?.contentViewController as? NSHostingController<SettingsView>)?.rootView.model.reloadProfile()

@@ -168,6 +168,7 @@ final class PointerOverlay {
         p.ignoresMouseEvents = true
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
+        ScreenPrivacy.apply(to: p)
         let view = NSView()
         view.layer = root
         view.wantsLayer = true
