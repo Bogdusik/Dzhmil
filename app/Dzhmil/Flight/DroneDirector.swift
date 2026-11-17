@@ -102,6 +102,8 @@ final class DroneDirector {
         isHidden = hidden
         let screen = screenGeometry()
         if hidden {
+            stopPetting()
+            clearPointer()
             let edge = ScreenEdge.allCases.randomElement() ?? .right
             hiddenEdge = edge
             lastVisibleCenter = flight.isMoving ? flight.target : flight.droneCenter
@@ -124,6 +126,7 @@ final class DroneDirector {
 
     func setQuiet(_ quiet: Bool) {
         send(.quietChanged(quiet))
+        if quiet { hum.setPurring(false) }
     }
 
     func ensureBubbleFits() {
@@ -333,6 +336,14 @@ final class DroneDirector {
     func clearPointer() {
         pointingAt = nil
         pointer.hide()
+    }
+
+    private func stopPetting() {
+        guard petDetector.isPetting else { return }
+        petDetector = PetDetector()
+        petCalmUntil = Date().addingTimeInterval(1)
+        model.petting = false
+        hum.setPurring(false)
     }
 
     private func updatePetting(mouse: CGPoint, now: TimeInterval, overDrone: Bool) {

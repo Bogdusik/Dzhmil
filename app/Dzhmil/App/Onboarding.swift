@@ -21,7 +21,12 @@ final class Onboarding {
         }
     }
 
-    private func submit(_ key: String) {
+    private func submit(_ raw: String) {
+        let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else {
+            companion.showOnboarding(Self.greeting)
+            return
+        }
         do {
             try companion.keychain.save(key)
         } catch {
