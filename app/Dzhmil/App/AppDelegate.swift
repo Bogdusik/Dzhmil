@@ -35,6 +35,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+        if let dir = argument(after: "--record-demo") {
+            let only = Set((argument(after: "--scenes") ?? "").split(separator: ",").map(String.init))
+            Task { [companion] in
+                try? await Task.sleep(for: .seconds(4))
+                await DemoDirector(companion: companion, outputDirectory: URL(fileURLWithPath: dir)).run(only: only)
+                NSApp.terminate(nil)
+            }
+        }
         if CommandLine.arguments.contains("--proactive-test") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [companion] in companion.proactive.fire(.dailyGreeting) }
         }
