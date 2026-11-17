@@ -165,3 +165,19 @@ import Testing
         #expect(!BubbleDismissal.shouldDismiss(isReply: false, finished: true, click: .drone))
     }
 }
+
+@Suite struct BubbleRecallTests {
+    @Test func tappingTheDroneBringsBackTheLastReply() {
+        #expect(BubbleRecall.shouldRecall(bubbleVisible: false, hasLastReply: true, click: .drone))
+    }
+
+    @Test func nothingToRecallOrAlreadyShown() {
+        #expect(!BubbleRecall.shouldRecall(bubbleVisible: false, hasLastReply: false, click: .drone))
+        #expect(!BubbleRecall.shouldRecall(bubbleVisible: true, hasLastReply: true, click: .drone))
+    }
+
+    @Test func onlyTheDroneRecalls() {
+        #expect(!BubbleRecall.shouldRecall(bubbleVisible: false, hasLastReply: true, click: .elsewhere))
+        #expect(!BubbleRecall.shouldRecall(bubbleVisible: false, hasLastReply: true, click: .bubble))
+    }
+}
