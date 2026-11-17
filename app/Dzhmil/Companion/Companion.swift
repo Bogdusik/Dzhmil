@@ -20,7 +20,7 @@ final class Companion {
     let director = DroneDirector()
     let keychain = KeychainStore()
     let profileStore = ProfileStore()
-    let timers = TimerStore()
+    let timers = TimerStore(file: TimerStore.defaultFile)
     let settingsBox = SettingsBox(AppSettings.load(from: .standard))
     let speaker = Speaker()
     let transcriber = Transcriber()

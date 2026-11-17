@@ -104,6 +104,31 @@ import Testing
         #expect(await store.due(now: t0.addingTimeInterval(360)) == ["чайник"])
         #expect(await store.due(now: t0.addingTimeInterval(400)).isEmpty)
     }
+
+    func tempFile() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("dzhmil-\(UUID().uuidString)/timers.json")
+    }
+
+    @Test func timersSurviveARestart() async {
+        let file = tempFile()
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        let first = TimerStore(file: file)
+        await first.add(label: "чайник", fireAt: t0.addingTimeInterval(300))
+        await first.add(label: "созвон", fireAt: t0.addingTimeInterval(900))
+        let second = TimerStore(file: file)
+        #expect(await second.due(now: t0.addingTimeInterval(400)) == ["чайник"])
+        let third = TimerStore(file: file)
+        #expect(await third.due(now: t0.addingTimeInterval(400)).isEmpty)
+        #expect(await third.due(now: t0.addingTimeInterval(1000)) == ["созвон"])
+    }
+
+    @Test func corruptTimerFileStartsEmpty() async throws {
+        let file = tempFile()
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("garbage".utf8).write(to: file)
+        let store = TimerStore(file: file)
+        #expect(await store.isEmpty)
+    }
 }
 
 @Suite struct MacToolsTests {

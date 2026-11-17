@@ -56,7 +56,7 @@ swift test --package-path app/DzhmilKit
 
 ## Privacy
 
-Audio never leaves the Mac: speech recognition runs on-device. Screenshots are taken only when you ask Dzhmil to look, always with a visible flash and bubble, and are sent to the Claude API as part of that conversation. Only the recognised text, tool results and your short profile (`~/Library/Application Support/Dzhmil/profile.md`, editable in Settings) are sent to the Claude API. The microphone turns on only while you hold the key.
+Audio never leaves the Mac: speech recognition runs on-device. Screenshots are taken only when you ask Dzhmil to look, always with a visible flash and bubble, and are sent to the Claude API as part of that conversation. Only the recognised text, tool results and your short profile (`~/Library/Application Support/Dzhmil/profile.md`, editable in Settings) are sent to the Claude API. The microphone turns on only while you hold the key. Timers are kept in `~/Library/Application Support/Dzhmil/timers.json`, so a reminder survives a restart; one that came due while Dzhmil was closed is told as soon as it starts.
 
 Links that carry data (a path, query, fragment, login or port) open only after you confirm them; a bare site such as `youtube.com` opens directly. Terminal commands, AppleScript, quitting apps, sleep, restart and shutdown always ask first.
 

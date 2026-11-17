@@ -35,6 +35,20 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     public init() {}
 
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        model = (try? c.decodeIfPresent(String.self, forKey: .model)) ?? d.model
+        effort = (try? c.decodeIfPresent(String.self, forKey: .effort)) ?? d.effort
+        chattiness = (try? c.decodeIfPresent(Chattiness.self, forKey: .chattiness)) ?? d.chattiness
+        voiceEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .voiceEnabled)) ?? d.voiceEnabled
+        voiceVolume = (try? c.decodeIfPresent(Double.self, forKey: .voiceVolume)) ?? d.voiceVolume
+        propellerSound = (try? c.decodeIfPresent(Bool.self, forKey: .propellerSound)) ?? d.propellerSound
+        launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin
+        if !Self.models.contains(model) { model = d.model }
+        if !Self.efforts.contains(effort) { effort = d.effort }
+    }
+
     public var conversation: ConversationSettings {
         ConversationSettings(model: model, effort: effort)
     }

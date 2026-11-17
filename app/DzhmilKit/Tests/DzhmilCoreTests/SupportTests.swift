@@ -55,6 +55,24 @@ import Testing
         #expect(AppSettings.load(from: defaults()) == AppSettings())
     }
 
+    @Test func olderSettingsKeepWhatTheyHave() {
+        let d = defaults()
+        d.set(Data(#"{"model":"claude-haiku-5-5","chattiness":"rare"}"#.utf8), forKey: AppSettings.key)
+        let s = AppSettings.load(from: d)
+        #expect(s.model == "claude-haiku-5-5")
+        #expect(s.chattiness == .rare)
+        #expect(s.voiceEnabled)
+        #expect(s.voiceVolume == 0.8)
+    }
+
+    @Test func retiredModelFallsBackToDefault() {
+        let d = defaults()
+        d.set(Data(#"{"model":"claude-old-1","effort":"turbo"}"#.utf8), forKey: AppSettings.key)
+        let s = AppSettings.load(from: d)
+        #expect(s.model == AppSettings().model)
+        #expect(s.effort == AppSettings().effort)
+    }
+
     @Test func chattinessGaps() {
         #expect(Chattiness.rare.minGap == 7200)
         #expect(Chattiness.normal.minGap == 2700)
@@ -69,7 +87,8 @@ import Testing
 
     @Test func createsTemplateOnFirstLoad() throws {
         let store = ProfileStore(directory: tempDir())
-        #expect(store.load() == "Меня зовут Богдан.\nЛюблю FPV-дроны и программирование.\n")
+        #expect(store.load() == ProfileStore.template)
+        #expect(!ProfileStore.template.contains("Богдан"))
         #expect(FileManager.default.fileExists(atPath: store.fileURL.path))
         #expect(store.fileURL.lastPathComponent == "profile.md")
     }
@@ -78,6 +97,15 @@ import Testing
         let store = ProfileStore(directory: tempDir())
         try store.save("Новый профиль")
         #expect(store.load() == "Новый профиль")
+    }
+
+    @Test func unreadableProfileIsNeverOverwritten() throws {
+        let store = ProfileStore(directory: tempDir())
+        try FileManager.default.createDirectory(at: store.directory, withIntermediateDirectories: true)
+        let bytes = Data([0x4D, 0x79, 0xFF, 0xFE, 0x20, 0x6E, 0x6F, 0x74, 0x65])
+        try bytes.write(to: store.fileURL)
+        _ = store.load()
+        #expect(try Data(contentsOf: store.fileURL) == bytes)
     }
 
     @Test func defaultDirectoryIsApplicationSupport() {

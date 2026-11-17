@@ -1,7 +1,7 @@
 import Foundation
 
 public struct ProfileStore: Sendable {
-    public static let template = "Меня зовут Богдан.\nЛюблю FPV-дроны и программирование.\n"
+    public static let template = "Здесь можно написать о себе: как тебя зовут, чем занимаешься, что любишь.\n"
 
     public static var defaultDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -16,9 +16,12 @@ public struct ProfileStore: Sendable {
     }
 
     public func load() -> String {
-        if let text = try? String(contentsOf: fileURL, encoding: .utf8) { return text }
-        try? save(Self.template)
-        return Self.template
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            try? save(Self.template)
+            return Self.template
+        }
+        guard let data = try? Data(contentsOf: fileURL) else { return Self.template }
+        return String(decoding: data, as: UTF8.self)
     }
 
     public func save(_ text: String) throws {
