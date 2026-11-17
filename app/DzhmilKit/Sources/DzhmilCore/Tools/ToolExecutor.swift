@@ -51,7 +51,7 @@ public actor ToolExecutor {
         do {
             let output = try await tool.runRich(use.input)
             Log.tools.notice("\(use.name, privacy: .public): ran")
-            return ToolOutcome(content: ToolOutput.limit(output.text), isError: false, ran: true, images: output.images)
+            return ToolOutcome(content: ToolOutput.limit(output.text, max: tool.outputLimit), isError: false, ran: true, images: output.images)
         } catch {
             Log.tools.error("\(use.name, privacy: .public) failed: \(error.localizedDescription, privacy: .private)")
             return ToolOutcome(content: ToolOutput.limit(error.localizedDescription), isError: true, ran: true)

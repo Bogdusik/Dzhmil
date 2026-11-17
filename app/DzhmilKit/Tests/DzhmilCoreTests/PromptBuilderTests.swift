@@ -27,6 +27,13 @@ import Testing
         for e in Emotion.allCases { #expect(s.contains("<\(e.rawValue)>")) }
     }
 
+    @Test func systemExplainsMemoryAndClipboard() {
+        let s = PromptBuilder.system(profile: "")
+        #expect(s.contains("remember"))
+        #expect(s.contains("forget"))
+        #expect(s.contains("read_clipboard"))
+    }
+
     @Test func userTurnHasTimestamp() {
         #expect(PromptBuilder.userTurn("привет", now: date, timeZone: london, remark: nil) == "[Сейчас: воскресенье, 15 ноября 2026, 14:05]\nпривет")
     }

@@ -1,6 +1,8 @@
 import Foundation
 
 public struct ProfileStore: Sendable {
+    public static let didChange = Notification.Name("dzhmil.profileDidChange")
+
     public static let template = "Здесь можно написать о себе: как тебя зовут, чем занимаешься, что любишь.\n"
 
     public static var defaultDirectory: URL {
@@ -27,5 +29,6 @@ public struct ProfileStore: Sendable {
     public func save(_ text: String) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try text.write(to: fileURL, atomically: true, encoding: .utf8)
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 }

@@ -12,7 +12,10 @@ final class SettingsModel {
     var keyDraft = ""
     var keyStatus = ""
     var checking = false
-    var profile: String
+    var profile: String { didSet { if !reloading { profileDirty = true } } }
+    @ObservationIgnored private var profileDirty = false
+    @ObservationIgnored private var reloading = false
+    @ObservationIgnored private var profileObserver: NSObjectProtocol?
     var profileStatus = ""
     var loginError = ""
 
@@ -21,6 +24,16 @@ final class SettingsModel {
         settings = companion.settings
         profile = companion.profileStore.load()
         keyStatus = companion.keychain.read() == nil ? "Ключ не сохранён." : "Ключ сохранён в Keychain."
+        profileObserver = NotificationCenter.default.addObserver(forName: ProfileStore.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reloadProfile() }
+        }
+    }
+
+    func reloadProfile() {
+        guard !profileDirty else { return }
+        reloading = true
+        profile = companion.profileStore.load()
+        reloading = false
     }
 
     func saveKey() {
@@ -48,6 +61,7 @@ final class SettingsModel {
 
     func saveProfile() {
         do {
+            profileDirty = false
             try companion.profileStore.save(profile)
             companion.profileChanged()
             profileStatus = "Сохранено."
@@ -140,6 +154,7 @@ enum SettingsWindow {
             w.isReleasedWhenClosed = false
             window = w
         }
+        (window?.contentViewController as? NSHostingController<SettingsView>)?.rootView.model.reloadProfile()
         NSApp.activate()
         window?.center()
         window?.makeKeyAndOrderFront(nil)

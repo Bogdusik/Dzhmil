@@ -45,7 +45,15 @@ final class Companion {
         let pointer: @Sendable (PointRequest) async -> Bool = { [weak self] request in
             await MainActor.run { self?.director.point(at: request.point, label: request.label) ?? false }
         }
-        let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture, pointer: pointer)
+        let beforeClipboard: @Sendable () async -> Bool = { [weak self] in
+            await MainActor.run { () -> Bool in
+                guard let self, !self.director.isHidden else { return false }
+                self.show(.text("Смотрю, что ты скопировал…"))
+                return true
+            }
+        }
+        let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture, pointer: pointer,
+                                   profile: profile, clipboard: PasteboardReader(), beforeClipboard: beforeClipboard)
         return Conversation(client: client,
                             executor: ToolExecutor(tools: tools, confirmer: confirmer),
                             settings: { box.current.conversation },

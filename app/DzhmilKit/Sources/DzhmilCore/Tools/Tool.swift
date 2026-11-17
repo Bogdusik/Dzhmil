@@ -31,9 +31,12 @@ public protocol Tool: Sendable {
     func confirmation(for input: JSONValue) -> ConfirmationRequest
     func run(_ input: JSONValue) async throws -> String
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput
+    var outputLimit: Int { get }
 }
 
 extension Tool {
+    public var outputLimit: Int { 4000 }
+
     public func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
         ToolRichOutput(text: try await run(input), images: [])
     }

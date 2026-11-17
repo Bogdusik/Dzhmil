@@ -4,6 +4,9 @@ public enum MacToolbox {
     public static func all(timers: TimerStore, screen: (any ScreenCapturer)? = nil,
                            beforeCapture: @escaping @Sendable () async -> Bool = { true },
                            pointer: (@Sendable (PointRequest) async -> Bool)? = nil,
+                           profile: ProfileStore? = nil,
+                           clipboard: (any ClipboardReader)? = nil,
+                           beforeClipboard: @escaping @Sendable () async -> Bool = { true },
                            now: @escaping @Sendable () -> Date = { Date() }) -> [any Tool] {
         var tools: [any Tool] = [
             SystemStatusTool(),
@@ -19,6 +22,11 @@ public enum MacToolbox {
             AppleScriptTool(),
             ShellTool(),
         ]
+        if let profile {
+            tools.append(RememberTool(profile: profile))
+            tools.append(ForgetTool(profile: profile))
+        }
+        if let clipboard { tools.append(ReadClipboardTool(reader: clipboard, beforeRead: beforeClipboard)) }
         if let screen {
             let memory = ScreenshotMemory()
             tools.append(LookAtScreenTool(capturer: screen, beforeCapture: beforeCapture, memory: memory, now: now))
