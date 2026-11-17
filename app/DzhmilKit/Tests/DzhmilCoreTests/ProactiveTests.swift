@@ -117,6 +117,11 @@ import Testing
         #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Привет! Как дела?")
     }
 
+    @Test func emotionTagsAreNotSpoken() async {
+        let client = FakeClaudeClient([Fixtures.text("<happy> Доброе утро! <thinking>Как спалось?")])
+        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Доброе утро! Как спалось?")
+    }
+
     @Test func keepsFirstTwoSentences() async {
         let client = FakeClaudeClient([Fixtures.text("Доброе утро! Как спалось? Я уже проснулся. Ещё")])
         #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Доброе утро! Как спалось?")

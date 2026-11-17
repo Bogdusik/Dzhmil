@@ -59,6 +59,8 @@ enum DroneGesture: Equatable {
     case idle(IdleGesture)
     case wiggle, startle, cameraFlash
     case steady(fromLeft: Bool)
+    case emotion(Emotion)
+    case heart
 }
 
 struct GestureRequest: Equatable {
@@ -91,6 +93,8 @@ final class DroneLayerView: NSView {
     private var lastGestureID: Int?
 
     private var currentState: DroneState?
+    private var petting = false
+    private var eyesOverride: DispatchWorkItem?
     private let anchor = CGPoint(x: 0.5, y: 0.55)
 
     init(width: CGFloat) {
@@ -294,6 +298,8 @@ final class DroneLayerView: NSView {
         guard state != currentState else { return }
         let previous = currentState
         currentState = state
+        eyesOverride?.cancel()
+        eyesOverride = nil
         let face = DroneFace.face(for: state)
 
         CATransaction.begin()
@@ -443,7 +449,7 @@ final class DroneLayerView: NSView {
             action.add(group([roll, lift], 0.8), forKey: "roll")
         case .wiggle:
             action.add(keyframes("transform.rotation.z", [0, 6, -6, 6, -6, 0].map { $0 * Double.pi / 180 }, nil, 0.9), forKey: "wiggle")
-            showHappyEyes(for: 1.0)
+            showEyes(eyesHappy, for: 1.0)
         case .startle:
             eyesDart.add(keyframes("transform.scale", [1, 1.4, 1.4, 1], [0, 0.15, 0.7, 1], 0.5), forKey: "startle")
             action.add(keyframes("transform.translation.y", [0, -8, 0], [0, 0.3, 1], 0.4), forKey: "jump")
@@ -452,6 +458,10 @@ final class DroneLayerView: NSView {
             let tilt = keyframes("transform.rotation.z", [0, 8, -5, 3, -1.5, 0].map { $0 * sign * Double.pi / 180 }, nil, 1.0)
             let bob = keyframes("transform.translation.y", [0, 5, -3, 1.5, 0], nil, 1.0)
             action.add(group([tilt, bob], 1.0), forKey: "steady")
+        case .emotion(let emotion):
+            play(emotion)
+        case .heart:
+            floatHeart()
         case .cameraFlash:
             flash.add(keyframes("opacity", [0, 0.9, 0, 0.9, 0], [0, 0.15, 0.45, 0.6, 1], 0.7), forKey: "flash")
             led.add(keyframes("transform.scale", [1, 1.8, 1], [0, 0.5, 1], 0.7), forKey: "pulse")
@@ -474,22 +484,94 @@ final class DroneLayerView: NSView {
         return g
     }
 
-    private func showHappyEyes(for seconds: Double) {
-        guard let state = currentState, !eyesOpen.isHidden else { return }
+    private func play(_ emotion: Emotion) {
+        switch emotion {
+        case .happy:
+            showEyes(eyesHappy, for: 1.5)
+            action.add(keyframes("transform.translation.y", [0, -10, 0, -3, 0], [0, 0.3, 0.6, 0.8, 1], 0.7), forKey: "hop")
+        case .laugh:
+            showEyes(eyesHappy, for: 1.2)
+            action.add(keyframes("transform.rotation.z", [0, 5, -5, 5, -5, 0].map { $0 * Double.pi / 180 }, nil, 0.8), forKey: "wiggle")
+            action.add(keyframes("transform.translation.y", [0, -4, 0, -4, 0], nil, 0.8), forKey: "giggle")
+        case .surprised:
+            eyesDart.add(keyframes("transform.scale", [1, 1.35, 1.35, 1], [0, 0.12, 0.75, 1], 0.9), forKey: "surprise")
+            action.add(keyframes("transform.translation.y", [0, -7, 0], [0, 0.3, 1], 0.45), forKey: "jump")
+        case .thinking:
+            let angle = -7 * Double.pi / 180
+            action.add(keyframes("transform.rotation.z", [0, angle, angle, 0], [0, 0.2, 0.8, 1], 1.8), forKey: "tilt")
+            eyesDart.add(keyframes("transform.translation.y", [0, -3, -3, 0], [0, 0.2, 0.8, 1], 1.8), forKey: "ponderY")
+            eyesDart.add(keyframes("transform.translation.x", [0, 3, 3, 0], [0, 0.2, 0.8, 1], 1.8), forKey: "ponderX")
+        case .sad:
+            showEyes(eyesSad, for: 2.0)
+            action.add(keyframes("transform.translation.y", [0, 6, 6, 0], [0, 0.25, 0.8, 1], 2.0), forKey: "droop")
+        }
+    }
+
+    func setPetting(_ on: Bool) {
+        guard on != petting else { return }
+        petting = on
+        if on {
+            showEyes(eyesHappy, for: nil)
+            let rock = pingPong("transform.rotation.z", -4 * Double.pi / 180, 4 * Double.pi / 180, 0.7)
+            action.add(rock, forKey: "pet")
+        } else {
+            action.removeAnimation(forKey: "pet")
+            restoreEyes()
+        }
+    }
+
+    private func floatHeart() {
+        let heart = CAShapeLayer()
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: 11, y: 20))
+        p.addCurve(to: CGPoint(x: 0, y: 7), control1: CGPoint(x: 5, y: 15), control2: CGPoint(x: 0, y: 11))
+        p.addCurve(to: CGPoint(x: 11, y: 4), control1: CGPoint(x: 0, y: 1), control2: CGPoint(x: 8, y: -1))
+        p.addCurve(to: CGPoint(x: 22, y: 7), control1: CGPoint(x: 14, y: -1), control2: CGPoint(x: 22, y: 1))
+        p.addCurve(to: CGPoint(x: 11, y: 20), control1: CGPoint(x: 22, y: 11), control2: CGPoint(x: 17, y: 15))
+        heart.path = p
+        heart.fillColor = DronePalette.cg(0xFF6B8B)
+        heart.bounds = CGRect(x: 0, y: 0, width: 22, height: 20)
+        heart.position = CGPoint(x: .random(in: 130...170), y: 30)
+        heart.opacity = 0
+        canvas.addSublayer(heart)
+        let rise = keyframes("position.y", [30, -20], nil, 1.6)
+        let drift = keyframes("position.x", [heart.position.x, heart.position.x + 8, heart.position.x - 4], nil, 1.6)
+        let fade = keyframes("opacity", [0, 1, 1, 0], [0, 0.15, 0.6, 1], 1.6)
+        let grow = keyframes("transform.scale", [0.5, 1.1, 1], [0, 0.3, 1], 1.6)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { heart.removeFromSuperlayer() }
+        heart.add(group([rise, drift, fade, grow], 1.6), forKey: "float")
+        CATransaction.commit()
+    }
+
+    private func showEyes(_ eyes: CALayer, for seconds: Double?) {
+        guard currentState != nil, !(petting && seconds != nil) else { return }
+        guard !eyesOpen.isHidden || eyesOverride != nil || petting else { return }
+        eyesOverride?.cancel()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        eyesOpen.isHidden = true
-        eyesHappy.isHidden = false
+        for layer in [eyesOpen, eyesHappy, eyesSad] { layer.isHidden = layer !== eyes }
         CATransaction.commit()
-        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
-            guard let self, currentState == state else { return }
-            let face = DroneFace.face(for: state)
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            eyesOpen.isHidden = ![.open, .wide, .darting].contains(face.eyes)
-            eyesHappy.isHidden = face.eyes != .happy
-            CATransaction.commit()
+        guard let seconds else { return }
+        let restore = DispatchWorkItem { [weak self] in
+            guard let self, !petting else { return }
+            restoreEyes()
         }
+        eyesOverride = restore
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: restore)
+    }
+
+    private func restoreEyes() {
+        eyesOverride?.cancel()
+        eyesOverride = nil
+        guard let state = currentState else { return }
+        let face = DroneFace.face(for: state)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        eyesOpen.isHidden = ![.open, .wide, .darting].contains(face.eyes)
+        eyesHappy.isHidden = face.eyes != .happy
+        eyesSad.isHidden = face.eyes != .sad
+        CATransaction.commit()
     }
 
     private func playShake() {

@@ -35,6 +35,10 @@ final class DroneDirector {
     private var lastCursorSpeed: Double = 0
     private var recentSpeeds: [(time: TimeInterval, speed: Double)] = []
     private var startleCooldownUntil = Date.distantPast
+    private var petDetector = PetDetector()
+    private var petCalmUntil = Date.distantPast
+    private var pointingAt: CGPoint?
+    let pointer = PointerOverlay()
     private let chaseEarliest = Date().addingTimeInterval(300)
     var chattiness: () -> Chattiness = { .normal }
     private(set) var isHidden = false
@@ -224,7 +228,7 @@ final class DroneDirector {
         lastCursorSpeed = speed
         recentSpeeds.append((now, speed))
         recentSpeeds.removeAll { now - $0.time > 1.5 }
-        updateEyes(mouse)
+        updateEyes(pointingAt ?? mouse)
         if chaseUntil != nil { updateChase(mouse) }
 
         let local = CGPoint(x: mouse.x - frame.minX, y: mouse.y - frame.minY)
@@ -234,8 +238,9 @@ final class DroneDirector {
             let ignore = !overDrone
             if panel.ignoresMouseEvents != ignore { panel.ignoresMouseEvents = ignore }
         }
+        updatePetting(mouse: mouse, now: now, overDrone: overDrone)
 
-        if !overDrone, speed > Self.dodgeCursorSpeed, Date() >= startleCooldownUntil,
+        if !overDrone, Date() >= petCalmUntil, speed > Self.dodgeCursorSpeed, Date() >= startleCooldownUntil,
            !machine.quiet, !machine.fullscreen, model.bubble == nil,
            hypot(mouse.x - flight.droneCenter.x, mouse.y - flight.droneCenter.y) < 150,
            machine.state == .hover || machine.state == .flying {
@@ -243,7 +248,7 @@ final class DroneDirector {
             model.play(.startle)
         }
 
-        guard chaseUntil == nil, !overDrone, speed > Self.dodgeCursorSpeed, machine.canWander, model.bubble == nil, dragStart == nil,
+        guard chaseUntil == nil, !overDrone, Date() >= petCalmUntil, speed > Self.dodgeCursorSpeed, machine.canWander, model.bubble == nil, dragStart == nil,
               !flight.isMoving, Date() >= dodgeCooldownUntil, Date() >= dragLockUntil else { return }
         if let target = PerchPlanner.dodge(droneCenter: flight.droneCenter, cursor: mouse, screen: screenGeometry(), droneSize: DronePanel.droneSize) {
             dodgeCooldownUntil = Date().addingTimeInterval(5)
@@ -257,6 +262,7 @@ final class DroneDirector {
         switch phase {
         case .changed:
             if dragStart == nil {
+                clearPointer()
                 if machine.state == .flying { send(.arrived) }
                 flight.stop()
                 dragStart = (mouse, flight.droneCenter)
@@ -292,6 +298,7 @@ final class DroneDirector {
 
     private func lifeGestures(_ now: Date) {
         let peakSpeed = recentSpeeds.map(\.speed).max() ?? 0
+        guard !petDetector.isPetting, now >= petCalmUntil else { return }
         if chaseUntil == nil, now >= chaseEarliest, now >= dragLockUntil, lastCursorSpeed > 20, NSEvent.pressedMouseButtons == 0,
            !flight.isMoving, dragStart == nil, model.bubble == nil,
            chasePolicy.shouldChase(now: now, chattiness: chattiness(), cursorSpeed: peakSpeed,
@@ -305,6 +312,45 @@ final class DroneDirector {
         let gesture = idleAnimator.pick(now: now, hour: Calendar.current.component(.hour, from: now), using: &rng)
         model.play(.idle(gesture))
         nextGestureAt = now.addingTimeInterval(IdleAnimator.delay(using: &rng))
+    }
+
+    func point(at target: CGPoint, label: String) -> Bool {
+        guard !isHidden else { return false }
+        if chaseUntil != nil { endChase(returnHome: false) }
+        let screen = NSScreen.screens.first { $0.frame.contains(target) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return false }
+        let perch = PointerLayout.droneSpot(target: target, visibleFrame: visible, droneSize: DronePanel.droneSize)
+        let spot = PerchPlanner.bubbleSafeCenter(perch, panelSize: DronePanel.size, droneOffset: DronePanel.droneCenterOffset, screen: screenGeometry())
+        pointingAt = target
+        pointer.show(target: target, label: label, below: panel)
+        flight.fly(to: spot) { [weak self] in
+            guard let self, pointingAt == target else { return }
+            pointer.showArrow(from: flight.droneCenter)
+        }
+        return true
+    }
+
+    func clearPointer() {
+        pointingAt = nil
+        pointer.hide()
+    }
+
+    private func updatePetting(mouse: CGPoint, now: TimeInterval, overDrone: Bool) {
+        let eligible = overDrone && machine.state == .hover && dragStart == nil && !flight.isMoving
+        for event in petDetector.update(x: mouse.x, time: now, overDrone: eligible, buttonDown: NSEvent.pressedMouseButtons != 0) {
+            switch event {
+            case .started:
+                petCalmUntil = .distantFuture
+                model.petting = true
+                hum.setPurring(!machine.quiet)
+            case .heart:
+                model.play(.heart)
+            case .ended:
+                petCalmUntil = Date().addingTimeInterval(1)
+                model.petting = false
+                hum.setPurring(false)
+            }
+        }
     }
 
     private func updateEyes(_ mouse: CGPoint) {

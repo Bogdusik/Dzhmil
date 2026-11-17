@@ -9,6 +9,7 @@ final class Speaker: NSObject {
     }
     private var tracker = SpeechTracker<() -> Void>()
     private var startedBatch = false
+    private var startActions: [ObjectIdentifier: () -> Void] = [:]
 
     var volume: Float = 0.8
     var enabled = true
@@ -21,8 +22,11 @@ final class Speaker: NSObject {
 
     var isSpeaking: Bool { tracker.isSpeaking }
 
-    func enqueue(_ sentence: String) {
-        guard enabled else { return }
+    func enqueue(_ sentence: String, onStart: (() -> Void)? = nil) {
+        guard enabled else {
+            onStart?()
+            return
+        }
         let language = LanguageGuess.guess(sentence)
         let utterance = AVSpeechUtterance(string: SpeechText.forSpeech(sentence, language: language))
         if let v = VoiceSelector.pick(language: language, from: voices) {
@@ -30,6 +34,7 @@ final class Speaker: NSObject {
         }
         utterance.rate = 0.52
         utterance.volume = volume
+        if let onStart { startActions[ObjectIdentifier(utterance)] = onStart }
         tracker.started()
         synth.speak(utterance)
     }
@@ -43,16 +48,19 @@ final class Speaker: NSObject {
     func stop() {
         tracker.reset()
         startedBatch = false
+        startActions = [:]
         synth.stopSpeaking(at: .immediate)
     }
 
-    fileprivate func didStart() {
+    fileprivate func didStart(_ id: ObjectIdentifier) {
+        startActions.removeValue(forKey: id)?()
         guard !startedBatch else { return }
         startedBatch = true
         onStart?()
     }
 
-    fileprivate func didFinishOne() {
+    fileprivate func didFinishOne(_ id: ObjectIdentifier) {
+        startActions.removeValue(forKey: id)
         let actions = tracker.finishedOne()
         if !tracker.isSpeaking { startedBatch = false }
         for action in actions { action() }
@@ -61,10 +69,12 @@ final class Speaker: NSObject {
 
 extension Speaker: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.didStart() }
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor in self.didStart(id) }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.didFinishOne() }
+        let id = ObjectIdentifier(utterance)
+        Task { @MainActor in self.didFinishOne(id) }
     }
 }

@@ -8,10 +8,13 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
     private var _log: [String] = []
     let windowError: ScreenCaptureError?
     let screenError: ScreenCaptureError?
+    let rect: CGRect
 
-    init(windowError: ScreenCaptureError? = nil, screenError: ScreenCaptureError? = nil) {
+    init(windowError: ScreenCaptureError? = nil, screenError: ScreenCaptureError? = nil,
+         rect: CGRect = CGRect(x: 0, y: 0, width: 400, height: 300)) {
         self.windowError = windowError
         self.screenError = screenError
+        self.rect = rect
     }
 
     var log: [String] { lock.withLock { _log } }
@@ -21,7 +24,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
         note("capture:\(target.rawValue)")
         if target == .window, let e = windowError { throw e }
         if target == .screen, let e = screenError { throw e }
-        return CapturedImage(image: solidImage(400, 300), appName: "Safari", windowTitle: "Apple")
+        return CapturedImage(image: solidImage(400, 300), appName: "Safari", windowTitle: "Apple", rect: rect)
     }
 }
 
@@ -35,7 +38,7 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
         let out = try await lookTool(FakeCapturer()).runRich(["target": "window"])
         #expect(out.images.count == 1)
         #expect(out.images.first?.mediaType == "image/jpeg")
-        #expect(out.text == "Скриншот окна: Safari — Apple")
+        #expect(out.text == "Скриншот окна: Safari — Apple. Размер картинки 400×300 px.")
     }
 
     @Test func beforeCaptureRunsFirst() async throws {
@@ -100,5 +103,8 @@ final class FakeCapturer: ScreenCapturer, @unchecked Sendable {
         #expect(names.count == 13)
         #expect(names.contains("look_at_screen"))
         #expect(MacToolbox.all(timers: TimerStore()).count == 12)
+        let withPointer = MacToolbox.all(timers: TimerStore(), screen: FakeCapturer(), pointer: { _ in true }).map(\.name)
+        #expect(withPointer.count == 14)
+        #expect(withPointer.contains("point_at"))
     }
 }

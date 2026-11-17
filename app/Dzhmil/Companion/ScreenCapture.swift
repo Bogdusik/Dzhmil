@@ -36,7 +36,7 @@ final class SCKScreenCapturer: ScreenCapturer {
             let filter = SCContentFilter(display: display, including: windows)
             let source = pick.rect.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY).intersection(CGRect(origin: .zero, size: display.frame.size))
             let image = try await shoot(filter, sourceRect: source, showsCursor: false)
-            return CapturedImage(image: image, appName: frontName, windowTitle: front.title)
+            return CapturedImage(image: image, appName: frontName, windowTitle: front.title, rect: pick.rect.intersection(display.frame))
 
         case .screen:
             guard let display = content.displays.first(where: { $0.displayID == displayID }) ?? content.displays.first else {
@@ -45,7 +45,7 @@ final class SCKScreenCapturer: ScreenCapturer {
             let mine = content.windows.filter { $0.owningApplication?.processID == me }
             let filter = SCContentFilter(display: display, excludingWindows: mine)
             let image = try await shoot(filter, sourceRect: nil, showsCursor: true)
-            return CapturedImage(image: image, appName: frontPID == me ? nil : frontName, windowTitle: nil)
+            return CapturedImage(image: image, appName: frontPID == me ? nil : frontName, windowTitle: nil, rect: display.frame)
         }
     }
 

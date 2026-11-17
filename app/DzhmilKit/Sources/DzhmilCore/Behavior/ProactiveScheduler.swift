@@ -130,7 +130,7 @@ public enum PhraseWriter {
             Log.conversation.error("Proactive phrase failed: \(String(describing: error), privacy: .public)")
             return template(t)
         }
-        let text = final?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let text = EmotionFilter.strip(final?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return template(t) }
         var splitter = SentenceSplitter()
         var sentences = splitter.feed(text)

@@ -24,6 +24,9 @@ final class CompanionViewModel {
     @ObservationIgnored var eyeOffset: CGVector = .zero {
         didSet { layerView?.setEyeOffset(eyeOffset) }
     }
+    @ObservationIgnored var petting = false {
+        didSet { layerView?.setPetting(petting) }
+    }
     @ObservationIgnored weak var layerView: DroneLayerView?
     @ObservationIgnored private var gestureCounter = 0
 

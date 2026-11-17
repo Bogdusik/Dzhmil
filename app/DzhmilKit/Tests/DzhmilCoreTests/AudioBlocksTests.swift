@@ -42,4 +42,24 @@ import Testing
         }
         #expect(status == noErr)
     }
+
+    func peak(_ synth: PropellerSynth, seconds: Double) -> Float {
+        let rate = 48_000.0
+        let frames = AVAudioFrameCount(rate * seconds)
+        let buffer = sine(frames: frames, rate: rate)
+        let block = synth.renderBlock(sampleRate: rate)
+        var silence = ObjCBool(false)
+        var time = AudioTimeStamp()
+        _ = block(&silence, &time, frames, buffer.mutableAudioBufferList)
+        let tail = Int(frames) - 4800
+        return (tail..<Int(frames)).map { abs(buffer.floatChannelData![0][$0]) }.max() ?? 0
+    }
+
+    @Test func purrSoundsEvenWhenTheHumIsSilent() {
+        let quiet = PropellerSynth()
+        #expect(peak(quiet, seconds: 1) == 0)
+        let purring = PropellerSynth()
+        purring.setPurr(true)
+        #expect(peak(purring, seconds: 1) > 0.005)
+    }
 }

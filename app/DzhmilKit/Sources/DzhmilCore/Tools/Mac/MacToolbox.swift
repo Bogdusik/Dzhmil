@@ -2,7 +2,9 @@ import Foundation
 
 public enum MacToolbox {
     public static func all(timers: TimerStore, screen: (any ScreenCapturer)? = nil,
-                           beforeCapture: @escaping @Sendable () async -> Bool = { true }) -> [any Tool] {
+                           beforeCapture: @escaping @Sendable () async -> Bool = { true },
+                           pointer: (@Sendable (PointRequest) async -> Bool)? = nil,
+                           now: @escaping @Sendable () -> Date = { Date() }) -> [any Tool] {
         var tools: [any Tool] = [
             SystemStatusTool(),
             ListRunningAppsTool(),
@@ -17,7 +19,11 @@ public enum MacToolbox {
             AppleScriptTool(),
             ShellTool(),
         ]
-        if let screen { tools.append(LookAtScreenTool(capturer: screen, beforeCapture: beforeCapture)) }
+        if let screen {
+            let memory = ScreenshotMemory()
+            tools.append(LookAtScreenTool(capturer: screen, beforeCapture: beforeCapture, memory: memory, now: now))
+            if let pointer { tools.append(PointAtTool(memory: memory, pointer: pointer, now: now)) }
+        }
         return tools
     }
 }

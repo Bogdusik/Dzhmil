@@ -121,6 +121,17 @@ enum Fixtures {
         #expect(client.requests.first?.effort == "low")
     }
 
+    @Test func emotionTagsBecomeEventsAndStayOutOfText() async {
+        let raw = "<happy> Ура! Всё готово."
+        let message = AssistantMessage(content: [["type": "text", "text": .string(raw)]], stopReason: "end_turn")
+        let (conv, _) = make([.reply(deltas: ["<hap", "py> Ура! Всё ", "готово."], message: message)])
+        let events = await collect(await conv.send("сделай"))
+        #expect(events == [.emotion(.happy), .sentence("Ура!"), .sentence("Всё готово."), .finished(text: "Ура! Всё готово.", didAct: false)])
+        let history = await conv.history
+        guard case .array(let blocks)? = history.last?["content"] else { Issue.record("no content"); return }
+        #expect(blocks.first?["text"]?.stringValue == raw)
+    }
+
     @Test func toolRoundTrip() async {
         let tool = RecordingTool(name: "open_app")
         let (conv, client) = make([Fixtures.toolCall([("toolu_1", "open_app", ["x": "Calculator"])]), Fixtures.text("Открыл.")], tools: [tool])

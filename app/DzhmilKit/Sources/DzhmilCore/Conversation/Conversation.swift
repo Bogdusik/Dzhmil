@@ -12,6 +12,7 @@ public struct ConversationSettings: Equatable, Sendable {
 
 public enum ConversationEvent: Equatable, Sendable {
     case sentence(String)
+    case emotion(Emotion)
     case toolStarted(String)
     case toolFinished(String, ran: Bool)
     case finished(text: String, didAct: Bool)
@@ -137,7 +138,19 @@ public actor Conversation {
     private func runTurn(gen: Int, system: String, continuation: AsyncStream<ConversationEvent>.Continuation) async {
         defer { continuation.finish() }
         var splitter = SentenceSplitter()
+        var emotions = EmotionFilter()
         var fullText = ""
+        func pass(_ pieces: [EmotionPiece]) {
+            for piece in pieces {
+                switch piece {
+                case .text(let t):
+                    fullText += t
+                    for sentence in splitter.feed(t) { continuation.yield(.sentence(sentence)) }
+                case .emotion(let e):
+                    continuation.yield(.emotion(e))
+                }
+            }
+        }
         var didAct = false
         let tools = executor.definitions
 
@@ -150,8 +163,7 @@ public actor Conversation {
                     guard isCurrent(gen) else { break }
                     switch event {
                     case .textDelta(let d):
-                        fullText += d
-                        for sentence in splitter.feed(d) { continuation.yield(.sentence(sentence)) }
+                        pass(emotions.feed(d))
                     case .message(let m):
                         final = m
                     }
@@ -188,6 +200,7 @@ public actor Conversation {
             }
             history.append(message.asHistoryEntry)
 
+            pass(emotions.flush())
             guard message.stopReason == "tool_use", !uses.isEmpty else {
                 if let rest = splitter.flush() { continuation.yield(.sentence(rest)) }
                 complete(gen)

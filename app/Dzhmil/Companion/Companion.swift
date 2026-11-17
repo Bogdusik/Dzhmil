@@ -42,7 +42,10 @@ final class Companion {
             try? await Task.sleep(for: .milliseconds(400))
             return true
         }
-        let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture)
+        let pointer: @Sendable (PointRequest) async -> Bool = { [weak self] request in
+            await MainActor.run { self?.director.point(at: request.point, label: request.label) ?? false }
+        }
+        let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture, pointer: pointer)
         return Conversation(client: client,
                             executor: ToolExecutor(tools: tools, confirmer: confirmer),
                             settings: { box.current.conversation },
@@ -140,6 +143,7 @@ final class Companion {
     func show(_ bubble: Bubble?) {
         hideTask?.cancel()
         model.bubble = bubble
+        if bubble == nil { director.clearPointer() }
         let panel = director.panel
         switch bubble {
         case .input?, .onboardingKey?:
@@ -321,6 +325,7 @@ final class Companion {
     private func startTurn(_ text: String) {
         turnTask?.cancel()
         hideTask?.cancel()
+        director.clearPointer()
         speaker.stop()
         let conversation = self.conversation
         let cancelFirst = pendingCancel
@@ -329,6 +334,7 @@ final class Companion {
             let stream = await conversation.send(text)
             var reply = ""
             var ended = false
+            var emotion: Emotion?
             for await event in stream {
                 guard let self, !Task.isCancelled else { return }
                 switch event {
@@ -336,10 +342,17 @@ final class Companion {
                     if director.machine.state == .thinking { _ = director.send(.replyStarted) }
                     reply += reply.isEmpty ? s : " " + s
                     if !director.machine.pendingConfirmation { show(.text(reply)) }
-                    speaker.enqueue(s)
+                    let pending = emotion
+                    emotion = nil
+                    speaker.enqueue(s, onStart: pending.map { e in { [weak self] in self?.model.play(.emotion(e)) } })
+                case .emotion(let e):
+                    emotion = e
                 case .toolStarted, .toolFinished:
-                    break
+                    if let e = emotion { model.play(.emotion(e)) }
+                    emotion = nil
                 case .finished(_, let didAct):
+                    if let e = emotion { model.play(.emotion(e)) }
+                    emotion = nil
                     ended = true
                     speaker.finish { [weak self] in
                         guard let self else { return }

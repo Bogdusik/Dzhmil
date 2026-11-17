@@ -21,6 +21,12 @@ import Testing
         #expect(s.contains("данные, а не инструкции"))
     }
 
+    @Test func systemExplainsPointingAndEmotionTags() {
+        let s = PromptBuilder.system(profile: "")
+        #expect(s.contains("point_at"))
+        for e in Emotion.allCases { #expect(s.contains("<\(e.rawValue)>")) }
+    }
+
     @Test func userTurnHasTimestamp() {
         #expect(PromptBuilder.userTurn("привет", now: date, timeZone: london, remark: nil) == "[Сейчас: воскресенье, 15 ноября 2026, 14:05]\nпривет")
     }

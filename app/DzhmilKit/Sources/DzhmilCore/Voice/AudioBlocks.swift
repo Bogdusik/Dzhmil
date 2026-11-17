@@ -68,11 +68,18 @@ public final class PropellerSynth: @unchecked Sendable {
     private var phase: Float = 0
     private var noise: Float = 0
     private var seed: UInt32 = 0x1234_5678
+    private var purrGoal: Float = 0
+    private var purr: Float = 0
+    private var purrPhase: Float = 0
 
     public init() {}
 
     public func setTarget(_ value: Float) {
         lock.withLock { target = value }
+    }
+
+    public func setPurr(_ on: Bool) {
+        lock.withLock { purrGoal = on ? 1 : 0 }
     }
 
     public func renderBlock(sampleRate: Double) -> AVAudioSourceNodeRenderBlock {
@@ -84,15 +91,20 @@ public final class PropellerSynth: @unchecked Sendable {
     }
 
     private func render(_ frames: Int, _ buffers: UnsafeMutableAudioBufferListPointer, sampleRate: Float) {
-        let goal = lock.withLock { target }
+        let (goal, purrTarget) = lock.withLock { (target, purrGoal) }
         for frame in 0..<frames {
             amplitude += (goal - amplitude) * 0.0005
+            purr += (purrTarget - purr) * 0.0005
             seed = seed &* 1_664_525 &+ 1_013_904_223
             let white = Float(Int32(bitPattern: seed)) / Float(Int32.max)
             noise += (white - noise) * 0.08
-            phase += 180 / sampleRate
+            phase += (180 - 80 * purr) / sampleRate
             if phase > 1 { phase -= 1 }
-            let sample = (noise * 0.6 + (phase * 2 - 1) * 0.25) * amplitude
+            purrPhase += 22 / sampleRate
+            if purrPhase > 1 { purrPhase -= 1 }
+            let throb = 0.55 + 0.45 * sin(2 * Float.pi * purrPhase)
+            let level = amplitude + purr * 0.035 * throb
+            let sample = (noise * 0.6 + (phase * 2 - 1) * 0.25) * level
             for buffer in buffers {
                 buffer.mData?.assumingMemoryBound(to: Float.self)[frame] = sample
             }

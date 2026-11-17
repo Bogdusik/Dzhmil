@@ -9,11 +9,13 @@ public struct CapturedImage: @unchecked Sendable {
     public var image: CGImage
     public var appName: String?
     public var windowTitle: String?
+    public var rect: CGRect
 
-    public init(image: CGImage, appName: String?, windowTitle: String?) {
+    public init(image: CGImage, appName: String?, windowTitle: String?, rect: CGRect = .zero) {
         self.image = image
         self.appName = appName
         self.windowTitle = windowTitle
+        self.rect = rect
     }
 }
 
@@ -30,6 +32,8 @@ struct LookAtScreenTool: SafeTool {
 
     let capturer: any ScreenCapturer
     let beforeCapture: @Sendable () async -> Bool
+    var memory: ScreenshotMemory? = nil
+    var now: @Sendable () -> Date = { Date() }
     let name = "look_at_screen"
     let description = "Сделать скриншот и посмотреть на экран пользователя. window — активное окно, screen — весь экран. Вызывай только когда пользователь просит посмотреть или спрашивает о том, что у него на экране."
     let inputSchema = Schema.object(["target": ["type": "string", "enum": ["window", "screen"], "description": "window или screen"]])
@@ -47,7 +51,12 @@ struct LookAtScreenTool: SafeTool {
         do {
             let (shot, target) = try await capture(requested)
             let base64 = try ImageEncoder.jpegBase64(shot.image)
-            return ToolRichOutput(text: caption(shot, target), images: [ToolImage(mediaType: "image/jpeg", base64: base64)])
+            let size = ImageEncoder.fittedSize(width: shot.image.width, height: shot.image.height)
+            let frame = shot.rect.isEmpty ? nil
+                : ScreenshotFrame(rect: shot.rect, pixelWidth: size.width, pixelHeight: size.height, takenAt: now())
+            await memory?.remember(frame)
+            let text = caption(shot, target) + ". Размер картинки \(size.width)×\(size.height) px."
+            return ToolRichOutput(text: text, images: [ToolImage(mediaType: "image/jpeg", base64: base64)])
         } catch ScreenCaptureError.permissionDenied {
             throw ToolError.message(Self.deniedMessage)
         } catch ScreenCaptureError.nothingToCapture {
