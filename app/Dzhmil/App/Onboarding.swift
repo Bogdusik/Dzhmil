@@ -30,12 +30,15 @@ final class Onboarding {
         }
         companion.say("Проверяю ключ…")
         Task {
-            if let error = await companion.checkKey() {
-                try? companion.keychain.delete()
-                companion.showOnboarding(error + " Попробуй ещё раз.")
-            } else {
+            switch await companion.checkKey() {
+            case nil:
                 let hotkey = KeyboardShortcuts.getShortcut(for: .pushToTalk)?.description ?? "⌥Space"
                 companion.say("Готово! Зажми \(hotkey) и говори. Отпустишь — я отвечу. А дважды кликнув по мне, можно написать.")
+            case let error? where error.meansBadKey:
+                try? companion.keychain.delete()
+                companion.showOnboarding(error.userMessage + " Попробуй ещё раз.")
+            case let error?:
+                companion.say(error.userMessage + " Ключ я сохранил, проверю его позже.")
             }
         }
     }

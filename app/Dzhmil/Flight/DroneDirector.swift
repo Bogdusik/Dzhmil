@@ -122,6 +122,7 @@ final class DroneDirector {
     }
 
     func ensureBubbleFits() {
+        guard !isHidden else { return }
         let center = flight.isMoving ? flight.target : flight.droneCenter
         let safe = PerchPlanner.bubbleSafeCenter(center, panelSize: DronePanel.size, droneOffset: DronePanel.droneCenterOffset, screen: screenGeometry())
         guard safe != center else { return }

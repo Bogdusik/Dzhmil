@@ -16,6 +16,11 @@ public struct ConfirmationRequest: Equatable, Sendable {
 
 public protocol ConfirmationProvider: Sendable {
     func confirm(_ request: ConfirmationRequest) async -> Bool
+    func isAnswering() async -> Bool
+}
+
+extension ConfirmationProvider {
+    public func isAnswering() async -> Bool { false }
 }
 
 public protocol Tool: Sendable {

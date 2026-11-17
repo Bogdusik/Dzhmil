@@ -6,6 +6,7 @@ final class BubbleConfirmer: ConfirmationProvider {
     private weak var director: DroneDirector?
     private var gate = ConfirmationGate()
     private var continuation: CheckedContinuation<Bool, Never>?
+    private var answering = false
     var showBubble: ((Bubble?) -> Void)?
 
     init(director: DroneDirector) {
@@ -13,6 +14,10 @@ final class BubbleConfirmer: ConfirmationProvider {
     }
 
     var currentID: Int? { gate.currentID }
+
+    func isAnswering() async -> Bool { answering }
+    func startAnswering() { answering = true }
+    func stopAnswering() { answering = false }
 
     func confirm(_ request: ConfirmationRequest) async -> Bool {
         let id = gate.begin(at: Date())
@@ -48,6 +53,7 @@ final class BubbleConfirmer: ConfirmationProvider {
     func resolve(_ yes: Bool, id: Int?) {
         guard gate.resolve(id: id), let c = continuation else { return }
         continuation = nil
+        answering = false
         if case .confirm? = director?.model.bubble { showBubble?(nil) }
         director?.send(.confirmationResolved)
         c.resume(returning: yes)

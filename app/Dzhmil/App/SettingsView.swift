@@ -42,7 +42,7 @@ final class SettingsModel {
         Task {
             let error = await companion.checkKey()
             checking = false
-            keyStatus = error ?? "Ключ работает."
+            keyStatus = error?.userMessage ?? "Ключ работает."
         }
     }
 

@@ -105,6 +105,35 @@ import Testing
     }
 }
 
+@Suite struct SpeechTrackerTests {
+    @Test func everyWaiterRunsWhenSpeechEnds() {
+        var t = SpeechTracker<Int>()
+        t.started()
+        t.started()
+        #expect(t.whenIdle(1) == nil)
+        #expect(t.whenIdle(2) == nil)
+        #expect(t.finishedOne() == [])
+        #expect(t.finishedOne() == [1, 2])
+        #expect(t.finishedOne() == [])
+    }
+
+    @Test func idleRunsAtOnce() {
+        var t = SpeechTracker<Int>()
+        #expect(t.whenIdle(7) == 7)
+        #expect(!t.isSpeaking)
+    }
+
+    @Test func resetDropsWaiters() {
+        var t = SpeechTracker<Int>()
+        t.started()
+        _ = t.whenIdle(1)
+        t.reset()
+        #expect(!t.isSpeaking)
+        #expect(t.finishedOne() == [])
+        #expect(t.whenIdle(2) == 2)
+    }
+}
+
 @Suite struct YesNoParserTests {
     @Test(arguments: ["Да", "да, закрывай", "ага", "так", "yes", "давай", "конечно", "угу", "Да.", "так, роби", "да, давай"])
     func yes(_ s: String) { #expect(YesNoParser.parse(s) == true) }

@@ -121,3 +121,37 @@ public struct ConfirmationGate: Sendable {
         return date.timeIntervalSince(shownAt) >= Self.clickDelay
     }
 }
+
+public struct SpeechTracker<Action> {
+    private var pending = 0
+    private var waiters: [Action] = []
+
+    public init() {}
+
+    public var isSpeaking: Bool { pending > 0 }
+
+    public mutating func started() {
+        pending += 1
+    }
+
+    public mutating func whenIdle(_ action: Action) -> Action? {
+        guard pending > 0 else { return action }
+        waiters.append(action)
+        return nil
+    }
+
+    public mutating func finishedOne() -> [Action] {
+        guard pending > 0 else { return [] }
+        pending -= 1
+        guard pending == 0 else { return [] }
+        defer { waiters = [] }
+        return waiters
+    }
+
+    public mutating func reset() {
+        pending = 0
+        waiters = []
+    }
+}
+
+extension SpeechTracker: Sendable where Action: Sendable {}

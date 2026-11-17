@@ -57,6 +57,17 @@ swift test --package-path app/DzhmilKit
 
 Audio never leaves the Mac: speech recognition runs on-device. Screenshots are taken only when you ask Dzhmil to look, always with a visible flash and bubble, and are sent to the Claude API as part of that conversation. Only the recognised text, tool results and your short profile (`~/Library/Application Support/Dzhmil/profile.md`, editable in Settings) are sent to the Claude API. The microphone turns on only while you hold the key.
 
+Links that carry data (a path, query, fragment, login or port) open only after you confirm them; a bare site such as `youtube.com` opens directly. Terminal commands, AppleScript, quitting apps, sleep, restart and shutdown always ask first.
+
+## Troubleshooting
+
+Dzhmil writes errors and a record of every Mac action (tool name, whether you confirmed it, whether it ran) to the system log. Conversation text and command contents are not logged.
+
+```sh
+log show --last 1h --predicate 'subsystem == "com.bogdusik.dzhmil"'
+log stream --predicate 'subsystem == "com.bogdusik.dzhmil"'
+```
+
 ## Resource use
 
 Measured on an M1 Pro (Release build):

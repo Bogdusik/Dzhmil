@@ -24,10 +24,11 @@ public struct ProactiveContext: Sendable {
     public var isQuiet: Bool
     public var isFullscreen: Bool
     public var isBusy: Bool
+    public var isHidden: Bool
     public var dueTimers: [String]
 
     public init(now: Date, calendar: Calendar, activeSince: Date?, isUserActive: Bool, batteryPercent: Int?, isCharging: Bool,
-                isQuiet: Bool, isFullscreen: Bool, isBusy: Bool, dueTimers: [String]) {
+                isQuiet: Bool, isFullscreen: Bool, isBusy: Bool, isHidden: Bool = false, dueTimers: [String]) {
         self.now = now
         self.calendar = calendar
         self.activeSince = activeSince
@@ -37,6 +38,7 @@ public struct ProactiveContext: Sendable {
         self.isQuiet = isQuiet
         self.isFullscreen = isFullscreen
         self.isBusy = isBusy
+        self.isHidden = isHidden
         self.dueTimers = dueTimers
     }
 }
@@ -55,6 +57,7 @@ public struct ProactiveScheduler: Codable, Equatable, Sendable {
 
     public mutating func decide(_ c: ProactiveContext, chattiness: Chattiness) -> ProactiveTrigger? {
         pendingTimers += c.dueTimers
+        guard !c.isHidden else { return nil }
         if !pendingTimers.isEmpty {
             guard !c.isBusy else { return nil }
             lastSpokeAt = c.now
@@ -124,6 +127,7 @@ public enum PhraseWriter {
                 if case .message(let m) = event { final = m }
             }
         } catch {
+            Log.conversation.error("Proactive phrase failed: \(String(describing: error), privacy: .public)")
             return template(t)
         }
         let text = final?.text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

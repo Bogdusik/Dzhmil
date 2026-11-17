@@ -38,6 +38,7 @@ public actor Conversation {
     private var sessionSystem: String?
     private var currentTask: Task<Void, Never>?
     private var generation = 0
+    private var resetPending = false
 
     public init(client: any ClaudeClient, executor: ToolExecutor,
                 settings: @escaping @Sendable () -> ConversationSettings,
@@ -65,14 +66,18 @@ public actor Conversation {
     }
 
     public func resetSession() {
-        cancel()
-        clearSession()
+        if turnSnapshot == nil {
+            clearSession()
+        } else {
+            resetPending = true
+        }
     }
 
     private func clearSession() {
         history = []
         lastActivity = nil
         sessionSystem = nil
+        resetPending = false
     }
 
     public func cancel() {
@@ -86,6 +91,7 @@ public actor Conversation {
 
     public func send(_ text: String) -> AsyncStream<ConversationEvent> {
         cancel()
+        if resetPending { clearSession() }
         resetIfStale()
         let (stream, continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
         generation += 1
@@ -95,10 +101,20 @@ public actor Conversation {
         sessionSystem = system
         let content = PromptBuilder.userTurn(text, now: now(), timeZone: timeZone, remark: pendingRemark)
         pendingRemark = nil
-        history.append(["role": "user", "content": .string(content)])
+        appendUserText(content)
         lastActivity = now()
         currentTask = Task { await self.runTurn(gen: gen, system: system, continuation: continuation) }
         return stream
+    }
+
+    private func appendUserText(_ text: String) {
+        if case .object(var last)? = history.last, last["role"] == "user", case .array(var blocks)? = last["content"] {
+            blocks.append(["type": "text", "text": .string(text)])
+            last["content"] = .array(blocks)
+            history[history.count - 1] = .object(last)
+        } else {
+            history.append(["role": "user", "content": .string(text)])
+        }
     }
 
     private func isCurrent(_ gen: Int) -> Bool {
@@ -144,6 +160,7 @@ public actor Conversation {
                 guard isCurrent(gen) else { return }
                 rollback(gen)
                 let claudeError = error as? ClaudeError ?? .network
+                Log.conversation.error("Turn failed: \(String(describing: claudeError), privacy: .public)")
                 if case .api(let status, _) = claudeError, (400..<500).contains(status) { clearSession() }
                 currentTask = nil
                 continuation.yield(.failed(claudeError))
@@ -163,6 +180,7 @@ public actor Conversation {
                 return
             }
             if message.stopReason != "tool_use", !uses.isEmpty {
+                Log.conversation.error("Tool call cut off, stop reason \(message.stopReason ?? "none", privacy: .public)")
                 rollback(gen)
                 currentTask = nil
                 continuation.yield(.failed(.incomplete))
@@ -195,8 +213,10 @@ public actor Conversation {
                 results.append(.object(result))
             }
             history.append(["role": "user", "content": .array(results)])
+            turnSnapshot = history
         }
 
+        Log.conversation.error("Gave up after \(Self.maxRounds) tool rounds")
         rollback(gen)
         currentTask = nil
         continuation.yield(.sentence(Self.lostMessage))

@@ -14,10 +14,20 @@ import Testing
     }
 
     func ctx(_ now: Date, activeSince: Date? = nil, battery: Int? = 80, charging: Bool = false,
-             quiet: Bool = false, fullscreen: Bool = false, busy: Bool = false, timers: [String] = []) -> ProactiveContext {
+             quiet: Bool = false, fullscreen: Bool = false, busy: Bool = false, hidden: Bool = false, timers: [String] = []) -> ProactiveContext {
         ProactiveContext(now: now, calendar: calendar, activeSince: activeSince ?? now, isUserActive: true,
                          batteryPercent: battery, isCharging: charging, isQuiet: quiet, isFullscreen: fullscreen,
-                         isBusy: busy, dueTimers: timers)
+                         isBusy: busy, isHidden: hidden, dueTimers: timers)
+    }
+
+    @Test func hiddenDroneKeepsEverythingForLater() {
+        var s = ProactiveScheduler()
+        #expect(s.decide(ctx(at(16, 9), battery: 10, hidden: true, timers: ["чай"]), chattiness: .often) == nil)
+        #expect(s.decide(ctx(at(16, 9, 1), battery: 10), chattiness: .often) == .timer("чай"))
+        #expect(s.decide(ctx(at(16, 9, 2), battery: 10), chattiness: .often) == .lowBattery(10))
+        var fresh = ProactiveScheduler()
+        #expect(fresh.decide(ctx(at(16, 9), hidden: true), chattiness: .often) == nil)
+        #expect(fresh.decide(ctx(at(16, 9, 1)), chattiness: .often) == .dailyGreeting)
     }
 
     @Test func greetsOncePerDay() {

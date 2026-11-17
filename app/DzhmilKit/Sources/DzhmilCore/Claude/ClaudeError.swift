@@ -15,6 +15,10 @@ public enum ClaudeError: Error, Equatable, Sendable {
         }
     }
 
+    public var meansBadKey: Bool {
+        self == .invalidKey || self == .missingKey
+    }
+
     public var isRetryable: Bool {
         switch self {
         case .rateLimited, .overloaded: true
@@ -29,8 +33,8 @@ public enum ClaudeError: Error, Equatable, Sendable {
         case 401: return .invalidKey
         case 429: return .rateLimited
         case 529: return .overloaded
-        case 400, 402, 403 where message.lowercased().contains("credit balance"):
-            return .insufficientCredit
+        case 400, 402, 403:
+            return message.lowercased().contains("credit balance") ? .insufficientCredit : .api(status: status, message: message)
         default: return .api(status: status, message: message)
         }
     }

@@ -6,6 +6,7 @@ public enum BehaviorEvent: Equatable, Sendable {
     case failed, animationDone
     case userIdle, userActive
     case quietChanged(Bool), fullscreenChanged(Bool)
+    case interrupted
 }
 
 public enum BehaviorEffect: Equatable, Sendable {
@@ -116,6 +117,19 @@ public struct BehaviorMachine: Sendable {
         case .quietChanged(let on):
             quiet = on
             return []
+
+        case .interrupted:
+            let active: [DroneState] = [.listening, .thinking, .speaking, .confirming]
+            pendingConfirmation = false
+            guard active.contains(state) else {
+                if state == .celebrating || state == .error { state = .hover }
+                return []
+            }
+            var effects: [BehaviorEffect] = [.stopSpeech]
+            if state == .listening { effects.append(.stopRecording) }
+            effects.append(.cancelConversation)
+            state = .hover
+            return effects
 
         case .fullscreenChanged(let on):
             fullscreen = on

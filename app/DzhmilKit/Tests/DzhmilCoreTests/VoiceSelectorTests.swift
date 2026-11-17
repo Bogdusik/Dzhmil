@@ -42,6 +42,13 @@ import Testing
         #expect(LanguageGuess.guess("Hello, how are you?") == "en")
     }
 
+    @Test func ownNameDoesNotMakeTextUkrainian() {
+        #expect(LanguageGuess.guess("Я Джміль, чем могу помочь?") == "ru")
+        #expect(LanguageGuess.guess("Спроси Джміля, он знает.") == "ru")
+        #expect(LanguageGuess.guess("Hi, I'm Джміль, your drone friend.") == "en")
+        #expect(LanguageGuess.guess("Привіт, я Джміль!") == "uk")
+    }
+
     @Test func defaultsToRussian() {
         #expect(LanguageGuess.guess("") == "ru")
         #expect(LanguageGuess.guess("42") == "ru")

@@ -12,6 +12,35 @@ import Testing
         #expect(BehaviorMachine().state == .hover)
     }
 
+    @Test func interruptStopsAReplyAndReturnsToHover() {
+        var m = machine(.textSubmitted, .replyStarted)
+        #expect(m.state == .speaking)
+        #expect(m.handle(.interrupted) == [.stopSpeech, .cancelConversation])
+        #expect(m.state == .hover)
+    }
+
+    @Test func interruptWhileListeningStopsTheMic() {
+        var m = machine(.pttDown)
+        #expect(m.handle(.interrupted) == [.stopSpeech, .stopRecording, .cancelConversation])
+        #expect(m.state == .hover)
+    }
+
+    @Test func interruptDropsAPendingConfirmation() {
+        var m = machine(.textSubmitted, .confirmationRequested)
+        #expect(m.handle(.interrupted) == [.stopSpeech, .cancelConversation])
+        #expect(m.state == .hover)
+        #expect(!m.pendingConfirmation)
+    }
+
+    @Test func interruptLeavesRestingStatesAlone() {
+        var sleeping = machine(.userIdle)
+        #expect(sleeping.handle(.interrupted) == [])
+        #expect(sleeping.state == .sleeping)
+        var hover = BehaviorMachine()
+        #expect(hover.handle(.interrupted) == [])
+        #expect(hover.state == .hover)
+    }
+
     @Test func pttFromHoverStartsListening() {
         var m = BehaviorMachine()
         #expect(m.handle(.pttDown) == [.stopSpeech, .startRecording])

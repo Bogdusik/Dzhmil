@@ -11,6 +11,21 @@ import Testing
         #expect(ClaudeError.from(status: 500, body: #"{"type":"error","error":{"type":"api_error","message":"boom"}}"#) == .api(status: 500, message: "boom"))
     }
 
+    @Test func otherBadRequestsAreNotCredit() {
+        #expect(ClaudeError.from(status: 400, body: #"{"type":"error","error":{"type":"invalid_request_error","message":"image exceeds 5 MB maximum"}}"#)
+                == .api(status: 400, message: "image exceeds 5 MB maximum"))
+        #expect(ClaudeError.from(status: 402, body: "payment required") == .api(status: 402, message: "payment required"))
+        #expect(ClaudeError.from(status: 403, body: #"{"error":{"message":"Your credit balance is too low"}}"#) == .insufficientCredit)
+    }
+
+    @Test func onlyKeyErrorsMeanBadKey() {
+        #expect(ClaudeError.invalidKey.meansBadKey)
+        #expect(ClaudeError.missingKey.meansBadKey)
+        for error: ClaudeError in [.network, .overloaded, .rateLimited, .insufficientCredit, .api(status: 500, message: "")] {
+            #expect(!error.meansBadKey)
+        }
+    }
+
     @Test func userMessages() {
         #expect(ClaudeError.missingKey.userMessage == "Мне нужен ключ API. Открой настройки.")
         #expect(ClaudeError.invalidKey.userMessage == "Ключ API не подходит. Проверь его в настройках.")

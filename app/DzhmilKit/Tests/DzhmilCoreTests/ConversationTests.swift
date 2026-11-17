@@ -3,10 +3,11 @@ import Testing
 @testable import DzhmilCore
 
 final class FakeClaudeClient: ClaudeClient, @unchecked Sendable {
-    enum Step {
+    indirect enum Step: Sendable {
         case reply(deltas: [String], message: AssistantMessage)
         case fail(ClaudeError)
         case hang
+        case after(Duration, Step)
     }
 
     private let lock = NSLock()
@@ -23,24 +24,33 @@ final class FakeClaudeClient: ClaudeClient, @unchecked Sendable {
             return steps.isEmpty ? .fail(.network) : steps.removeFirst()
         }
         return AsyncThrowingStream { cont in
-            let task = Task {
-                switch step {
-                case .reply(let deltas, let message):
-                    for d in deltas { cont.yield(.textDelta(d)) }
-                    cont.yield(.message(message))
-                    cont.finish()
-                case .fail(let e):
-                    cont.finish(throwing: e)
-                case .hang:
-                    do {
-                        try await Task.sleep(for: .seconds(100))
-                        cont.finish()
-                    } catch {
-                        cont.finish(throwing: CancellationError())
-                    }
-                }
-            }
+            let task = Task { await Self.play(step, cont) }
             cont.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private static func play(_ step: Step, _ cont: AsyncThrowingStream<StreamEvent, Error>.Continuation) async {
+        switch step {
+        case .reply(let deltas, let message):
+            for d in deltas { cont.yield(.textDelta(d)) }
+            cont.yield(.message(message))
+            cont.finish()
+        case .fail(let e):
+            cont.finish(throwing: e)
+        case .hang:
+            do {
+                try await Task.sleep(for: .seconds(100))
+                cont.finish()
+            } catch {
+                cont.finish(throwing: CancellationError())
+            }
+        case .after(let delay, let next):
+            do {
+                try await Task.sleep(for: delay)
+                await play(next, cont)
+            } catch {
+                cont.finish(throwing: CancellationError())
+            }
         }
     }
 }
@@ -159,18 +169,62 @@ enum Fixtures {
         #expect(await tool.runs.value == 0)
     }
 
-    @Test func cancelRollsBackHistory() async throws {
-        let (conv, client) = make([Fixtures.text("Первый ответ."), Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .hang])
+    @Test func cancelBeforeAnyToolRollsBack() async throws {
+        let (conv, client) = make([Fixtures.text("Первый ответ."), .hang])
         _ = await collect(await conv.send("раз"))
         let snapshot = await conv.history
+        let stream = await conv.send("два")
+        let collector = Task { await collect(stream) }
+        for _ in 0..<200 where client.requests.count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        await conv.cancel()
+        let events = await collector.value
+        #expect(!events.contains { if case .finished = $0 { true } else { false } })
+        #expect(await conv.history == snapshot)
+    }
+
+    @Test func cancelKeepsToolsThatAlreadyRan() async throws {
+        let (conv, client) = make([Fixtures.text("Первый ответ."), Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .hang])
+        _ = await collect(await conv.send("раз"))
+        let before = await conv.history.count
         let stream = await conv.send("два")
         let collector = Task { await collect(stream) }
         for _ in 0..<200 where client.requests.count < 3 { try await Task.sleep(for: .milliseconds(10)) }
         #expect(client.requests.count == 3)
         await conv.cancel()
+        _ = await collector.value
+        let history = await conv.history
+        #expect(history.count == before + 3)
+        #expect(history.last?["content"]?.arrayValue?.first?["tool_use_id"] == "t")
+    }
+
+    @Test func failureAfterToolKeepsWhatRanAndMergesNextTurn() async throws {
+        let (conv, client) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), .fail(.network), Fixtures.text("Ок.")])
+        let events = await collect(await conv.send("открой"))
+        #expect(events.last == .failed(.network))
+        let history = await conv.history
+        try #require(history.count == 3)
+        #expect(history[2]["content"]?.arrayValue?.first?["type"] == "tool_result")
+        _ = await collect(await conv.send("ещё раз"))
+        try #require(client.requests.count == 3)
+        let sent = client.requests[2].messages
+        #expect(sent.count == 3)
+        let blocks = sent.last?["content"]?.arrayValue ?? []
+        #expect(blocks.first?["type"] == "tool_result")
+        #expect(blocks.last?["type"] == "text")
+        #expect(blocks.last?["text"]?.stringValue?.hasSuffix("\nещё раз") == true)
+    }
+
+    @Test func resetSessionLetsTheCurrentTurnFinish() async throws {
+        let (conv, client) = make([.after(.milliseconds(200), Fixtures.text("Готово.")), Fixtures.text("Новая.")])
+        let stream = await conv.send("сделай")
+        let collector = Task { await collect(stream) }
+        for _ in 0..<200 where client.requests.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+        await conv.resetSession()
         let events = await collector.value
-        #expect(!events.contains { if case .finished = $0 { true } else { false } })
-        #expect(await conv.history == snapshot)
+        #expect(events.last == .finished(text: "Готово.", didAct: false))
+        _ = await collect(await conv.send("заново"))
+        try #require(client.requests.count == 2)
+        #expect(client.requests[1].messages.count == 1)
     }
 
     @Test func errorEmitsFailedAndRollsBack() async {
@@ -222,12 +276,12 @@ enum Fixtures {
         #expect(await conv.history.isEmpty)
     }
 
-    @Test func emptyReplyAfterToolRollsBack() async {
+    @Test func emptyReplyAfterToolKeepsTheToolRound() async {
         let empty = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [], stopReason: "end_turn"))
         let (conv, _) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), empty])
         let events = await collect(await conv.send("открой"))
         #expect(events.last == .finished(text: "", didAct: true))
-        #expect(await conv.history.isEmpty)
+        #expect(await conv.history.count == 3)
     }
 
     @Test func truncatedToolUseFails() async {

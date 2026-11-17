@@ -46,7 +46,8 @@ public enum SpeechText {
 public enum LanguageGuess {
     static let ukrainianLetters: Set<Character> = ["і", "ї", "є", "ґ", "І", "Ї", "Є", "Ґ"]
 
-    public static func guess(_ text: String) -> String {
+    public static func guess(_ original: String) -> String {
+        let text = original.replacingOccurrences(of: #"(?i)джміл\p{L}*"#, with: " ", options: .regularExpression)
         guard text.contains(where: \.isLetter) else { return "ru" }
         if text.contains(where: ukrainianLetters.contains) { return "uk" }
         let r = NLLanguageRecognizer()

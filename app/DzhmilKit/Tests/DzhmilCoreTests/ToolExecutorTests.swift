@@ -54,6 +54,17 @@ struct ScriptedConfirmer: ConfirmationProvider {
     }
 }
 
+struct AnsweringConfirmer: ConfirmationProvider {
+    let answerAfter: Duration
+
+    func confirm(_ r: ConfirmationRequest) async -> Bool {
+        try? await Task.sleep(for: answerAfter)
+        return true
+    }
+
+    func isAnswering() async -> Bool { true }
+}
+
 @Suite struct ToolExecutorTests {
     func use(_ name: String) -> ToolUse { ToolUse(id: "t1", name: name, input: ["x": "1"]) }
 
@@ -77,6 +88,25 @@ struct ScriptedConfirmer: ConfirmationProvider {
         let started = Date()
         let outcome = await ToolExecutor(tools: [tool], confirmer: ScriptedConfirmer(mode: .never), confirmTimeout: .milliseconds(200)).execute(use("danger"))
         #expect(outcome == ToolOutcome(content: "Пользователь не ответил, действие не выполнено.", isError: false, ran: false))
+        #expect(await tool.runs.value == 0)
+        #expect(Date().timeIntervalSince(started) < 2)
+    }
+
+    @Test func timeoutWaitsWhileTheUserIsAnswering() async {
+        let tool = RecordingTool(name: "danger", dangerous: true)
+        let confirmer = AnsweringConfirmer(answerAfter: .milliseconds(400))
+        let outcome = await ToolExecutor(tools: [tool], confirmer: confirmer, confirmTimeout: .milliseconds(100)).execute(use("danger"))
+        #expect(outcome.ran)
+        #expect(await tool.runs.value == 1)
+    }
+
+    @Test func answeringCannotHoldTheQuestionForever() async {
+        let tool = RecordingTool(name: "danger", dangerous: true)
+        let started = Date()
+        let executor = ToolExecutor(tools: [tool], confirmer: AnsweringConfirmer(answerAfter: .seconds(1000)),
+                                    confirmTimeout: .milliseconds(100), answerGrace: .milliseconds(300))
+        let outcome = await executor.execute(use("danger"))
+        #expect(outcome.content == "Пользователь не ответил, действие не выполнено.")
         #expect(await tool.runs.value == 0)
         #expect(Date().timeIntervalSince(started) < 2)
     }

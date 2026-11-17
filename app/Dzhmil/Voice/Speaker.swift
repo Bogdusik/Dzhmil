@@ -7,9 +7,8 @@ final class Speaker: NSObject {
     private lazy var voices: [VoiceInfo] = AVSpeechSynthesisVoice.speechVoices().map {
         VoiceInfo(identifier: $0.identifier, language: $0.language, quality: $0.quality.rawValue, name: $0.name)
     }
-    private var pending = 0
+    private var tracker = SpeechTracker<() -> Void>()
     private var startedBatch = false
-    private var whenIdle: (() -> Void)?
 
     var volume: Float = 0.8
     var enabled = true
@@ -20,7 +19,7 @@ final class Speaker: NSObject {
         synth.delegate = self
     }
 
-    var isSpeaking: Bool { pending > 0 }
+    var isSpeaking: Bool { tracker.isSpeaking }
 
     func enqueue(_ sentence: String) {
         guard enabled else { return }
@@ -31,22 +30,18 @@ final class Speaker: NSObject {
         }
         utterance.rate = 0.52
         utterance.volume = volume
-        pending += 1
+        tracker.started()
         synth.speak(utterance)
     }
 
     func finish(then action: @escaping () -> Void) {
-        if pending == 0 {
-            startedBatch = false
-            action()
-        } else {
-            whenIdle = action
-        }
+        guard let now = tracker.whenIdle(action) else { return }
+        startedBatch = false
+        now()
     }
 
     func stop() {
-        whenIdle = nil
-        pending = 0
+        tracker.reset()
         startedBatch = false
         synth.stopSpeaking(at: .immediate)
     }
@@ -58,12 +53,9 @@ final class Speaker: NSObject {
     }
 
     fileprivate func didFinishOne() {
-        guard pending > 0 else { return }
-        pending -= 1
-        guard pending == 0, let action = whenIdle else { return }
-        whenIdle = nil
-        startedBatch = false
-        action()
+        let actions = tracker.finishedOne()
+        if !tracker.isSpeaking { startedBatch = false }
+        for action in actions { action() }
     }
 }
 

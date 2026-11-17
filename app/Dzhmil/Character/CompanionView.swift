@@ -15,11 +15,16 @@ enum DragPhase { case changed, ended }
 @Observable
 final class CompanionViewModel {
     var state: DroneState = .hover
-    var bankDegrees: Double = 0
     var bubble: Bubble?
     var bubbleRect: CGRect?
     var gesture: GestureRequest?
-    var eyeOffset: CGVector = .zero
+    @ObservationIgnored var bankDegrees: Double = 0 {
+        didSet { layerView?.setBank(bankDegrees) }
+    }
+    @ObservationIgnored var eyeOffset: CGVector = .zero {
+        didSet { layerView?.setEyeOffset(eyeOffset) }
+    }
+    @ObservationIgnored weak var layerView: DroneLayerView?
     @ObservationIgnored private var gestureCounter = 0
 
     func play(_ g: DroneGesture) {
@@ -58,7 +63,8 @@ struct CompanionView: View {
                 })
                 .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
             }
-            DroneView(state: model.state, bankDegrees: model.bankDegrees, gesture: model.gesture, eyeOffset: model.eyeOffset)
+            DroneView(state: model.state, bankDegrees: model.bankDegrees, gesture: model.gesture, eyeOffset: model.eyeOffset,
+                      onMake: { model.layerView = $0 })
                 .contentShape(Ellipse())
                 .gesture(
                     DragGesture(minimumDistance: 4, coordinateSpace: .global)

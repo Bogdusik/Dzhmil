@@ -33,11 +33,13 @@ struct DroneView: NSViewRepresentable {
     let bankDegrees: Double
     var gesture: GestureRequest? = nil
     var eyeOffset: CGVector = .zero
+    var onMake: ((DroneLayerView) -> Void)? = nil
 
     func makeNSView(context: Context) -> DroneLayerView {
         let v = DroneLayerView(width: Self.width)
         v.apply(state: state)
         v.setBank(bankDegrees)
+        onMake?(v)
         return v
     }
 

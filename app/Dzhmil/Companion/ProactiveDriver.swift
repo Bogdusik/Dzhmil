@@ -58,7 +58,7 @@ final class ProactiveDriver {
         let context = ProactiveContext(now: now, calendar: .current, activeSince: activeSince, isUserActive: idle < Self.activeIdleLimit,
                                        batteryPercent: battery.percent, isCharging: battery.charging,
                                        isQuiet: machine.quiet, isFullscreen: machine.fullscreen, isBusy: busy,
-                                       dueTimers: await companion.timers.due(now: now))
+                                       isHidden: companion.director.isHidden, dueTimers: await companion.timers.due(now: now))
         let trigger = scheduler.decide(context, chattiness: companion.settings.chattiness)
         save()
         guard let trigger else { return }

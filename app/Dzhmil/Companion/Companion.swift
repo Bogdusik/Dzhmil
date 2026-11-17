@@ -105,16 +105,17 @@ final class Companion {
         director.hum.enabled = s.propellerSound
     }
 
-    func checkKey() async -> String? {
+    func checkKey() async -> ClaudeError? {
         let request = MessagesRequest(model: settings.model, system: "Ответь одним словом.",
                                       messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512)
         do {
             for try await _ in client.stream(request) {}
             return nil
         } catch let error as ClaudeError {
-            return error.userMessage
+            Log.app.error("Key check failed: \(String(describing: error), privacy: .public)")
+            return error
         } catch {
-            return ClaudeError.network.userMessage
+            return .network
         }
     }
 
@@ -125,8 +126,12 @@ final class Companion {
 
     func setHidden(_ hidden: Bool) {
         if hidden {
-            if gate.isDown { pttUp() }
+            utteranceGeneration += 1
+            autoStopTimer?.invalidate()
+            autoStopTimer = nil
+            gate = PushToTalkGate()
             if case .confirm? = model.bubble { confirmer.resolve(false, id: confirmer.currentID) }
+            perform(director.send(.interrupted))
             speaker.stop()
             show(nil)
         }
@@ -142,9 +147,10 @@ final class Companion {
             panel.allowsKey = true
             panel.makeKey()
         default:
-            if panel.allowsKey || panel.isKeyWindow {
-                panel.allowsKey = false
-                panel.resignKey()
+            panel.allowsKey = false
+            if panel.isKeyWindow {
+                panel.orderOut(nil)
+                panel.orderFrontRegardless()
             }
         }
         if bubble != nil { director.ensureBubbleFits() }
@@ -171,7 +177,7 @@ final class Companion {
 
         utteranceGeneration += 1
         answeringConfirmation = director.machine.pendingConfirmation ? confirmer.currentID : nil
-        if answeringConfirmation == nil { show(nil) }
+        if answeringConfirmation == nil { show(nil) } else { confirmer.startAnswering() }
         gate.down(at: Date())
         perform(director.send(.pttDown))
         guard gate.isDown else { return }
@@ -202,7 +208,9 @@ final class Companion {
             do {
                 raw = try await transcriber.transcribe(samples)
             } catch {
+                Log.app.error("Transcription failed: \(error.localizedDescription, privacy: .public)")
                 guard generation == utteranceGeneration else { return }
+                confirmer.stopAnswering()
                 _ = director.send(.failed)
                 say("Не получилось распознать речь. В первый раз мне нужен интернет, чтобы скачать модель.")
                 finishAnimation()
@@ -273,6 +281,7 @@ final class Companion {
                 do {
                     try recorder.start()
                 } catch {
+                    Log.app.error("Microphone failed: \(error.localizedDescription, privacy: .public)")
                     gate = PushToTalkGate()
                     _ = director.send(.failed)
                     say("Не получилось включить микрофон.")
@@ -287,10 +296,12 @@ final class Companion {
     }
 
     private func transcriptMissing() {
+        confirmer.stopAnswering()
         _ = director.send(.transcriptEmpty)
     }
 
     private func handleUtterance(_ text: String, confirmID: Int?) {
+        confirmer.stopAnswering()
         if let confirmID {
             guard confirmer.currentID == confirmID else { return }
             if let yes = YesNoParser.parse(text) {
@@ -318,6 +329,7 @@ final class Companion {
             await cancelFirst?.value
             let stream = await conversation.send(text)
             var reply = ""
+            var ended = false
             for await event in stream {
                 guard let self, !Task.isCancelled else { return }
                 switch event {
@@ -329,6 +341,7 @@ final class Companion {
                 case .toolStarted, .toolFinished:
                     break
                 case .finished(_, let didAct):
+                    ended = true
                     speaker.finish { [weak self] in
                         guard let self else { return }
                         _ = director.send(.replyFinished(didAct: didAct))
@@ -336,12 +349,15 @@ final class Companion {
                         scheduleHide()
                     }
                 case .failed(let error):
+                    ended = true
                     speaker.stop()
                     _ = director.send(.failed)
                     say(error.userMessage)
                     finishAnimation()
                 }
             }
+            guard let self, !ended, !Task.isCancelled else { return }
+            perform(director.send(.interrupted))
         }
     }
 
