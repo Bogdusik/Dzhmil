@@ -14,7 +14,7 @@ struct StateGalleryView: View {
 
     static let gestures: [(String, DroneGesture)] = [
         ("Оглядеться", .idle(.lookAround)), ("Наклон", .idle(.tilt)), ("Прыжок", .idle(.hop)), ("Зевок", .idle(.yawn)),
-        ("Бочка", .idle(.barrelRoll)), ("Радость", .wiggle), ("Испуг", .startle), ("Вспышка", .cameraFlash),
+        ("Бочка", .idle(.barrelRoll)), ("Радость", .wiggle), ("Испуг", .startle), ("Вспышка", .cameraFlash), ("Выравнивание", .steady(fromLeft: true)),
     ]
 
     static let samples: [(String, Bubble)] = [

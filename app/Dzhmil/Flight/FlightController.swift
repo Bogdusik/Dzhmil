@@ -49,6 +49,11 @@ final class FlightController: NSObject {
         link?.isPaused = false
     }
 
+    func fling(velocity: CGVector, to center: CGPoint, completion: (() -> Void)? = nil) {
+        model.velocity = velocity
+        fly(to: center, completion: completion)
+    }
+
     func stop() {
         link?.isPaused = true
         lastTimestamp = nil

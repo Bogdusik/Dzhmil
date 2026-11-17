@@ -37,3 +37,33 @@ public struct FlightModel: Sendable {
         hypot(target.x - position.x, target.y - position.y) < 0.5 && hypot(velocity.dx, velocity.dy) < 1
     }
 }
+
+public enum Fling {
+    public struct Sample: Equatable, Sendable {
+        public var time: Double
+        public var point: CGPoint
+        public init(time: Double, point: CGPoint) {
+            self.time = time
+            self.point = point
+        }
+    }
+
+    public static let glide: Double = 0.45
+    public static let minimumSpeed: Double = 300
+    static let window: Double = 0.1
+
+    public static func releaseVelocity(_ samples: [Sample], now: Double) -> CGVector {
+        let recent = samples.filter { now - $0.time <= window + 1e-9 }
+        guard let first = recent.first, let last = recent.last, last.time - first.time > 0.005 else { return .zero }
+        let dt = last.time - first.time
+        return CGVector(dx: (last.point.x - first.point.x) / dt, dy: (last.point.y - first.point.y) / dt)
+    }
+
+    public static func plan(from position: CGPoint, velocity: CGVector) -> (velocity: CGVector, target: CGPoint)? {
+        let speed = hypot(velocity.dx, velocity.dy)
+        guard speed >= minimumSpeed else { return nil }
+        let scale = min(1, FlightModel.maxSpeed / speed)
+        let v = CGVector(dx: velocity.dx * scale, dy: velocity.dy * scale)
+        return (v, CGPoint(x: position.x + v.dx * glide, y: position.y + v.dy * glide))
+    }
+}

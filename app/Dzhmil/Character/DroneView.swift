@@ -58,6 +58,7 @@ struct DroneView: NSViewRepresentable {
 enum DroneGesture: Equatable {
     case idle(IdleGesture)
     case wiggle, startle, cameraFlash
+    case steady(fromLeft: Bool)
 }
 
 struct GestureRequest: Equatable {
@@ -446,6 +447,11 @@ final class DroneLayerView: NSView {
         case .startle:
             eyesDart.add(keyframes("transform.scale", [1, 1.4, 1.4, 1], [0, 0.15, 0.7, 1], 0.5), forKey: "startle")
             action.add(keyframes("transform.translation.y", [0, -8, 0], [0, 0.3, 1], 0.4), forKey: "jump")
+        case .steady(let fromLeft):
+            let sign = fromLeft ? -1.0 : 1.0
+            let tilt = keyframes("transform.rotation.z", [0, 8, -5, 3, -1.5, 0].map { $0 * sign * Double.pi / 180 }, nil, 1.0)
+            let bob = keyframes("transform.translation.y", [0, 5, -3, 1.5, 0], nil, 1.0)
+            action.add(group([tilt, bob], 1.0), forKey: "steady")
         case .cameraFlash:
             flash.add(keyframes("opacity", [0, 0.9, 0, 0.9, 0], [0, 0.15, 0.45, 0.6, 1], 0.7), forKey: "flash")
             led.add(keyframes("transform.scale", [1, 1.8, 1], [0, 0.5, 1], 0.7), forKey: "pulse")

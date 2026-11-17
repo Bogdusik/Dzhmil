@@ -22,6 +22,7 @@ final class DroneDirector {
     private var dragLockUntil = Date.distantPast
     private var dodgeCooldownUntil = Date.distantPast
     private var dragStart: (mouse: CGPoint, center: CGPoint)?
+    private var dragSamples: [Fling.Sample] = []
     private var lastMouse: (point: CGPoint, time: TimeInterval)?
     private var isFullscreen = false
     private var ticks = 0
@@ -252,19 +253,34 @@ final class DroneDirector {
 
     private func handleDrag(_ phase: DragPhase) {
         let mouse = NSEvent.mouseLocation
+        let now = ProcessInfo.processInfo.systemUptime
         switch phase {
         case .changed:
             if dragStart == nil {
                 if machine.state == .flying { send(.arrived) }
                 flight.stop()
                 dragStart = (mouse, flight.droneCenter)
+                dragSamples = []
             }
             guard let start = dragStart else { return }
+            dragSamples.append(Fling.Sample(time: now, point: mouse))
+            dragSamples.removeAll { now - $0.time > 0.3 }
             flight.place(at: CGPoint(x: start.center.x + mouse.x - start.mouse.x, y: start.center.y + mouse.y - start.mouse.y))
         case .ended:
             dragStart = nil
             dragLockUntil = Date().addingTimeInterval(Self.dragLock)
-            let clamped = PerchPlanner.clamp(flight.droneCenter, droneSize: DronePanel.droneSize, screen: screenGeometry())
+            let velocity = Fling.releaseVelocity(dragSamples, now: now)
+            dragSamples = []
+            let screen = screenGeometry()
+            if let plan = Fling.plan(from: flight.droneCenter, velocity: velocity) {
+                let target = PerchPlanner.clamp(plan.target, droneSize: DronePanel.droneSize, screen: screen)
+                let fromLeft = plan.velocity.dx >= 0
+                flight.fling(velocity: plan.velocity, to: target) { [weak self] in
+                    self?.model.play(.steady(fromLeft: fromLeft))
+                }
+                return
+            }
+            let clamped = PerchPlanner.clamp(flight.droneCenter, droneSize: DronePanel.droneSize, screen: screen)
             if clamped != flight.droneCenter { flight.fly(to: clamped) }
         }
     }
