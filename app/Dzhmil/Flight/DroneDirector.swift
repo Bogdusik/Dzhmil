@@ -137,13 +137,6 @@ final class DroneDirector {
         flight.fly(to: safe)
     }
 
-    var isMouseOverBubble: Bool {
-        guard let rect = model.bubbleRect else { return false }
-        let mouse = NSEvent.mouseLocation
-        let frame = panel.frame
-        return rect.contains(CGPoint(x: mouse.x - frame.minX, y: mouse.y - frame.minY))
-    }
-
     func revealForCapture() {
         panel.alphaValue = 1
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in

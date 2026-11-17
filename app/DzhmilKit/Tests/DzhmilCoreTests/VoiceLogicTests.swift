@@ -146,10 +146,23 @@ import Testing
     func unclear(_ s: String) { #expect(YesNoParser.parse(s) == nil) }
 }
 
-@Suite struct BubbleTimingTests {
-    @Test func longerTextStaysLonger() {
-        #expect(BubbleTiming.linger(for: "Привет!") == 6)
-        #expect(BubbleTiming.linger(for: String(repeating: "а", count: 300)) == 20)
-        #expect(BubbleTiming.linger(for: String(repeating: "а", count: 5000)) == 60)
+@Suite struct BubbleDismissalTests {
+    @Test func finishedReplyClosesOnAnyClickOutsideIt() {
+        #expect(BubbleDismissal.shouldDismiss(isReply: true, finished: true, click: .elsewhere))
+        #expect(BubbleDismissal.shouldDismiss(isReply: true, finished: true, click: .drone))
+    }
+
+    @Test func clickInsideTheBubbleKeepsIt() {
+        #expect(!BubbleDismissal.shouldDismiss(isReply: true, finished: true, click: .bubble))
+    }
+
+    @Test func replyStillComingIsKept() {
+        #expect(!BubbleDismissal.shouldDismiss(isReply: true, finished: false, click: .elsewhere))
+        #expect(!BubbleDismissal.shouldDismiss(isReply: true, finished: false, click: .drone))
+    }
+
+    @Test func otherBubblesAreLeftAlone() {
+        #expect(!BubbleDismissal.shouldDismiss(isReply: false, finished: true, click: .elsewhere))
+        #expect(!BubbleDismissal.shouldDismiss(isReply: false, finished: true, click: .drone))
     }
 }

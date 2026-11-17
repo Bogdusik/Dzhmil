@@ -58,6 +58,8 @@ final class Companion {
     private var turnTask: Task<Void, Never>?
     private var pendingCancel: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
+    private var clickMonitor: Any?
+    private(set) var replyFinished = false
     private var autoStopTimer: Timer?
     private var utteranceGeneration = 0
     private var answeringConfirmation: Int?
@@ -86,6 +88,10 @@ final class Companion {
                                onCancel: { self?.closeBubble() }))
         }
         model.onDoubleClick = { [weak self] in self?.openTextInput() }
+        model.onTap = { [weak self] in self?.bubbleClicked(.drone) }
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.bubbleClicked(.elsewhere) }
+        }
         confirmer.showBubble = { [weak self] in self?.show($0) }
         director.panel.onResignKey = { [weak self] in
             guard let self, case .input? = model.bubble else { return }
@@ -142,6 +148,7 @@ final class Companion {
 
     func show(_ bubble: Bubble?) {
         hideTask?.cancel()
+        replyFinished = false
         model.bubble = bubble
         if bubble == nil { director.clearPointer() }
         let panel = director.panel
@@ -253,7 +260,7 @@ final class Companion {
                 show(nil)
             }
         } else {
-            speaker.finish { [weak self] in self?.scheduleHide() }
+            speaker.finish { [weak self] in self?.markReplyFinished() }
         }
     }
 
@@ -358,7 +365,7 @@ final class Companion {
                         guard let self else { return }
                         _ = director.send(.replyFinished(didAct: didAct))
                         if didAct { finishAnimation() }
-                        scheduleHide()
+                        if reply.isEmpty, case .text? = model.bubble { show(nil) } else { markReplyFinished() }
                     }
                 case .failed(let error):
                     ended = true
@@ -380,18 +387,16 @@ final class Companion {
         }
     }
 
-    private func scheduleHide() {
-        hideTask?.cancel()
-        guard case .text(let shown)? = model.bubble else { return }
-        let linger = BubbleTiming.linger(for: shown)
-        hideTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(linger))
-            while let self, !Task.isCancelled, case .text? = model.bubble, director.isMouseOverBubble {
-                try? await Task.sleep(for: .seconds(1))
-            }
-            guard !Task.isCancelled, let self, case .text? = model.bubble else { return }
-            show(nil)
-        }
+    private func markReplyFinished() {
+        guard case .text? = model.bubble else { return }
+        replyFinished = true
+    }
+
+    private func bubbleClicked(_ click: BubbleClick) {
+        let isReply: Bool
+        if case .text? = model.bubble { isReply = true } else { isReply = false }
+        guard BubbleDismissal.shouldDismiss(isReply: isReply, finished: replyFinished, click: click) else { return }
+        show(nil)
     }
 
     private func closeBubble() {

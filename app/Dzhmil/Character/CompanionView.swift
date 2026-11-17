@@ -37,6 +37,7 @@ final class CompanionViewModel {
 
     @ObservationIgnored var onDrag: ((DragPhase) -> Void)?
     @ObservationIgnored var onDoubleClick: (() -> Void)?
+    @ObservationIgnored var onTap: (() -> Void)?
     @ObservationIgnored var bubbleContent: ((Bubble) -> AnyView)?
 }
 
@@ -75,6 +76,7 @@ struct CompanionView: View {
                         .onEnded { _ in model.onDrag?(.ended) }
                 )
                 .onTapGesture(count: 2) { model.onDoubleClick?() }
+                .onTapGesture(count: 1) { model.onTap?() }
                 .padding(.bottom, DronePanel.droneBottomMargin)
         }
         .frame(width: DronePanel.size.width, height: DronePanel.size.height)

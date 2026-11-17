@@ -156,10 +156,12 @@ public struct SpeechTracker<Action> {
 
 extension SpeechTracker: Sendable where Action: Sendable {}
 
-public enum BubbleTiming {
-    static let charactersPerSecond = 15.0
+public enum BubbleClick: Sendable {
+    case elsewhere, drone, bubble
+}
 
-    public static func linger(for text: String) -> TimeInterval {
-        min(60, max(6, Double(text.count) / charactersPerSecond))
+public enum BubbleDismissal {
+    public static func shouldDismiss(isReply: Bool, finished: Bool, click: BubbleClick) -> Bool {
+        isReply && finished && click != .bubble
     }
 }

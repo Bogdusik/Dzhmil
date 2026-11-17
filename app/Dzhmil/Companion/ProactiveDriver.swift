@@ -67,7 +67,8 @@ final class ProactiveDriver {
 
     private var isBusy: Bool {
         let machine = companion.director.machine
-        return ![DroneState.hover, .flying, .sleeping].contains(machine.state) || companion.model.bubble != nil || companion.isListening
+        let bubbleBusy = companion.model.bubble != nil && !companion.replyFinished
+        return ![DroneState.hover, .flying, .sleeping].contains(machine.state) || bubbleBusy || companion.isListening
     }
 
     private func speak(_ trigger: ProactiveTrigger) async {
