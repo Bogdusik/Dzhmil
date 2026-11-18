@@ -16,6 +16,7 @@ final class SettingsBox: @unchecked Sendable {
 @MainActor
 final class Companion {
     static let downloadNotice = "Downloading my hearing. This happens once and takes a few minutes…"
+    static let notHeardMessage = "Sorry, I didn't catch that."
 
     let director = DroneDirector()
     let keychain = KeychainStore()
@@ -215,8 +216,14 @@ final class Companion {
         let outcome = gate.up(at: Date())
         let samples = recorder.isRecording ? recorder.stop() : []
         _ = director.send(.pttUp)
-        guard outcome == .accept, AudioLevel.hasSpeech(samples) else {
+        guard outcome == .accept else {
             transcriptMissing()
+            return
+        }
+        let seconds = Double(samples.count) / 16_000
+        Log.app.notice("Voice: \(seconds, format: .fixed(precision: 1))s recorded, peak level \(AudioLevel.peak(samples), format: .fixed(precision: 4)), speech above \(AudioLevel.threshold, format: .fixed(precision: 4))")
+        guard AudioLevel.hasSpeech(samples) else {
+            notHeard()
             return
         }
         let generation = utteranceGeneration
@@ -238,7 +245,8 @@ final class Companion {
             guard generation == utteranceGeneration, !gate.isDown else { return }
             if case .text(Self.downloadNotice)? = model.bubble { show(nil) }
             guard let text = TranscriptFilter.clean(raw) else {
-                transcriptMissing()
+                Log.app.notice("Voice: transcript of \(raw.count) characters had nothing usable")
+                notHeard()
                 return
             }
             handleUtterance(text, confirmID: confirmID)
@@ -317,6 +325,15 @@ final class Companion {
     private func transcriptMissing() {
         confirmer.stopAnswering()
         _ = director.send(.transcriptEmpty)
+    }
+
+    private func notHeard() {
+        transcriptMissing()
+        if director.machine.pendingConfirmation {
+            speaker.enqueue(Self.notHeardMessage)
+        } else {
+            say(Self.notHeardMessage)
+        }
     }
 
     private func handleUtterance(_ text: String, confirmID: Int?) {

@@ -70,24 +70,25 @@ public enum YesNoParser {
 
 public enum AudioLevel {
     static let frameSeconds = 0.03
-    static let threshold: Float = 0.006
+    public static let threshold: Float = 0.006
     static let minimumSpeechSeconds = 0.15
 
     public static func hasSpeech(_ samples: [Float], sampleRate: Double = 16_000) -> Bool {
-        let frame = max(1, Int(sampleRate * frameSeconds))
         let needed = Int((minimumSpeechSeconds / frameSeconds).rounded(.up))
-        var loud = 0
-        var i = 0
-        while i + frame <= samples.count {
+        return frameLevels(samples, sampleRate: sampleRate).lazy.filter { $0 > threshold }.prefix(needed).count >= needed
+    }
+
+    public static func peak(_ samples: [Float], sampleRate: Double = 16_000) -> Float {
+        frameLevels(samples, sampleRate: sampleRate).max() ?? 0
+    }
+
+    static func frameLevels(_ samples: [Float], sampleRate: Double) -> [Float] {
+        let frame = max(1, Int(sampleRate * frameSeconds))
+        return stride(from: 0, through: samples.count - frame, by: frame).map { start in
             var sum: Float = 0
-            for j in i..<(i + frame) { sum += samples[j] * samples[j] }
-            if (sum / Float(frame)).squareRoot() > threshold {
-                loud += 1
-                if loud >= needed { return true }
-            }
-            i += frame
+            for j in start..<(start + frame) { sum += samples[j] * samples[j] }
+            return (sum / Float(frame)).squareRoot()
         }
-        return false
     }
 }
 

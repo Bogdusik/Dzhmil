@@ -46,6 +46,13 @@ import Testing
     @Test func shortBurstIsNotSpeech() {
         #expect(!AudioLevel.hasSpeech([Float](repeating: 0, count: 16_000) + tone(0.05, amplitude: 0.1)))
     }
+
+    @Test func peakIsTheLoudestFrame() {
+        #expect(AudioLevel.peak([Float](repeating: 0, count: 16_000)) == 0)
+        #expect(AudioLevel.peak([]) == 0)
+        let peak = AudioLevel.peak([Float](repeating: 0, count: 8_000) + tone(0.5, amplitude: 0.1))
+        #expect(peak > 0.06 && peak < 0.08)
+    }
 }
 
 @Suite struct ConfirmationGateTests {
