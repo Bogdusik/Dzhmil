@@ -4,7 +4,7 @@ public actor ToolExecutor {
     static let declined = "The user declined; the action was not performed."
     static let noAnswer = "The user didn't answer; the action was not performed."
 
-    private let tools: [String: any Tool]
+    private nonisolated let tools: [String: any Tool]
     private let confirmer: any ConfirmationProvider
     private let confirmTimeout: Duration
     private let answerGrace: Duration
@@ -32,11 +32,15 @@ public actor ToolExecutor {
         }
     }
 
-    public func execute(_ use: ToolUse) async -> ToolOutcome {
+    public nonisolated func readsUntrustedContent(_ name: String) -> Bool {
+        tools[name]?.readsUntrustedContent ?? false
+    }
+
+    public func execute(_ use: ToolUse, afterUntrustedContent: Bool = false) async -> ToolOutcome {
         guard let tool = tools[use.name] else {
             return ToolOutcome(content: "No such tool: \(use.name)", isError: true, ran: false)
         }
-        if tool.risk(for: use.input) == .needsConfirmation {
+        if tool.risk(for: use.input) == .needsConfirmation || (afterUntrustedContent && tool.asksAfterUntrustedContent) {
             switch await confirm(tool.confirmation(for: use.input)) {
             case .some(true):
                 Log.tools.notice("\(use.name, privacy: .public): confirmed")

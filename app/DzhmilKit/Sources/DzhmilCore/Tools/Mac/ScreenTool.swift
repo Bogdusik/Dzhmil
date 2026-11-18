@@ -35,6 +35,7 @@ struct LookAtScreenTool: SafeTool {
     var memory: ScreenshotMemory? = nil
     var now: @Sendable () -> Date = { Date() }
     let name = "look_at_screen"
+    let readsUntrustedContent = true
     let description = "Take a screenshot to see the user's screen. window is the active window, screen is the whole screen. Call it only when the user asks you to look or asks about something on their screen."
     let inputSchema = Schema.object(["target": ["type": "string", "enum": ["window", "screen"], "description": "window or screen"]])
 

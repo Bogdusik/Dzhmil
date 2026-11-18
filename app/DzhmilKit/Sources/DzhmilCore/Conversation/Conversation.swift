@@ -40,6 +40,7 @@ public actor Conversation {
     private var turnSnapshot: [JSONValue]?
     private var sessionSystem: String?
     private var sessionProvider: Provider?
+    private var sawUntrustedContent = false
     private var currentTask: Task<Void, Never>?
     private var generation = 0
     private var resetPending = false
@@ -82,6 +83,7 @@ public actor Conversation {
         lastActivity = nil
         sessionSystem = nil
         sessionProvider = nil
+        sawUntrustedContent = false
         resetPending = false
     }
 
@@ -247,8 +249,9 @@ public actor Conversation {
             var results: [JSONValue] = []
             for use in uses {
                 continuation.yield(.toolStarted(use.name))
-                let outcome = await executor.execute(use)
+                let outcome = await executor.execute(use, afterUntrustedContent: sawUntrustedContent)
                 guard isCurrent(gen) else { return }
+                if outcome.ran, executor.readsUntrustedContent(use.name) { sawUntrustedContent = true }
                 if outcome.ran && !outcome.isError { didAct = true }
                 continuation.yield(.toolFinished(use.name, ran: outcome.ran))
                 var result: [String: JSONValue] = [

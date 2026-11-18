@@ -14,6 +14,8 @@ struct RecordingTool: Tool {
     var dangerous = false
     var output = "done"
     var failure: String?
+    var readsUntrustedContent = false
+    var asksAfterUntrustedContent = false
     let runs = Counter()
 
     func risk(for input: JSONValue) -> ToolRisk { dangerous ? .needsConfirmation : .safe }
@@ -166,4 +168,36 @@ struct AnsweringConfirmer: ConfirmationProvider {
         #expect(s.hasSuffix("…[cut, 10000 characters in total]"))
         #expect(ToolOutput.limit("short") == "short")
     }
+}
+
+@Suite struct UntrustedToolFlagsTests {
+    @Test func memoryAndLinksAskAfterScreenOrClipboard() throws {
+        let tools = MacToolbox.all(timers: TimerStore(), screen: NoScreen(), profile: ProfileStore(directory: FileManager.default.temporaryDirectory),
+                                   clipboard: NoClipboard())
+        let readers = Set(tools.filter(\.readsUntrustedContent).map(\.name))
+        let guarded = Set(tools.filter(\.asksAfterUntrustedContent).map(\.name))
+        #expect(readers == ["look_at_screen", "read_clipboard"])
+        #expect(guarded == ["remember", "forget", "open_url"])
+        let remember = try #require(tools.first { $0.name == "remember" })
+        #expect(remember.confirmation(for: ["fact": "  Interview   on Thursday "]) == ConfirmationRequest(question: "Remember this?", detail: "Interview on Thursday"))
+    }
+
+    @Test func executorAsksOnlyWhenTold() async {
+        let tool = RecordingTool(name: "remember", asksAfterUntrustedContent: true)
+        let confirmer = ScriptedConfirmer(mode: .no)
+        let executor = ToolExecutor(tools: [tool], confirmer: confirmer)
+        let free = await executor.execute(ToolUse(id: "1", name: "remember", input: ["x": "a"]))
+        #expect(free.ran)
+        let guarded = await executor.execute(ToolUse(id: "2", name: "remember", input: ["x": "a"]), afterUntrustedContent: true)
+        #expect(!guarded.ran)
+        #expect(await confirmer.asked.value == 1)
+    }
+}
+
+private struct NoScreen: ScreenCapturer {
+    func capture(_ target: CaptureTarget) async throws -> CapturedImage { throw ScreenCaptureError.permissionDenied }
+}
+
+private struct NoClipboard: ClipboardReader {
+    func read() async -> ClipboardContent { .empty }
 }

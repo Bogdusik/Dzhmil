@@ -14,8 +14,6 @@ actor Transcriber {
         self.model = model
     }
 
-    var isReady: Bool { pipe != nil }
-
     static var isModelDownloaded: Bool {
         let root = modelsDirectory.path
         guard let e = FileManager.default.enumerator(atPath: root) else { return false }

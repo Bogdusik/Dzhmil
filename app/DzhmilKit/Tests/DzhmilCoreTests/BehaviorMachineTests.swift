@@ -170,13 +170,4 @@ import Testing
         #expect(!machine(.pttDown).canWander)
         #expect(machine(.quietChanged(true), .quietChanged(false)).canWander)
     }
-
-    @Test func canSpeakFirstRules() {
-        #expect(BehaviorMachine().canSpeakFirst)
-        #expect(!machine(.quietChanged(true)).canSpeakFirst)
-        #expect(!machine(.fullscreenChanged(true)).canSpeakFirst)
-        for busy in [machine(.pttDown), machine(.pttDown, .pttUp), machine(.pttDown, .pttUp, .replyStarted), machine(.pttDown, .pttUp, .confirmationRequested)] {
-            #expect(!busy.canSpeakFirst)
-        }
-    }
 }

@@ -357,3 +357,55 @@ enum Fixtures {
         #expect(try JSONValue.array(Array(reqs[1].messages.prefix(1))).encodedData() == JSONValue.array(reqs[0].messages).encodedData())
     }
 }
+
+@Suite struct UntrustedContentTests {
+    func make(_ steps: [FakeChatClient.Step], confirmer: ScriptedConfirmer) -> Conversation {
+        let tools: [any Tool] = [
+            RecordingTool(name: "look", readsUntrustedContent: true),
+            RecordingTool(name: "remember", asksAfterUntrustedContent: true),
+        ]
+        return Conversation(client: FakeChatClient(steps), executor: ToolExecutor(tools: tools, confirmer: confirmer),
+                            settings: { ConversationSettings(model: "claude-opus-5-5", effort: "low") }, profile: { "" })
+    }
+
+    @Test func rememberingIsFreeWithoutScreenOrClipboard() async {
+        let confirmer = ScriptedConfirmer(mode: .yes)
+        let conv = make([Fixtures.toolCall([("t1", "remember", ["x": "a"])]), Fixtures.text("Saved.")], confirmer: confirmer)
+        for await _ in await conv.send("remember my interview") {}
+        #expect(await confirmer.asked.value == 0)
+    }
+
+    @Test func rememberingAfterLookingAsksFirst() async {
+        let confirmer = ScriptedConfirmer(mode: .no)
+        let conv = make([
+            Fixtures.toolCall([("t1", "look", ["x": "a"])]),
+            Fixtures.toolCall([("t2", "remember", ["x": "b"])]),
+            Fixtures.text("OK."),
+            Fixtures.toolCall([("t3", "remember", ["x": "c"])]),
+            Fixtures.text("OK."),
+        ], confirmer: confirmer)
+        for await _ in await conv.send("what's on screen?") {}
+        #expect(await confirmer.asked.value == 1)
+        let declined = await conv.history.contains { entry in
+            (entry["content"]?.arrayValue ?? []).contains { $0["tool_use_id"] == "t2" && $0["content"] == .string(ToolExecutor.declined) }
+        }
+        #expect(declined)
+        for await _ in await conv.send("and remember this") {}
+        #expect(await confirmer.asked.value == 2)
+        await conv.resetSession()
+    }
+
+    @Test func aFreshSessionTrustsAgain() async {
+        let confirmer = ScriptedConfirmer(mode: .yes)
+        let conv = make([
+            Fixtures.toolCall([("t1", "look", ["x": "a"])]),
+            Fixtures.text("I see."),
+            Fixtures.toolCall([("t2", "remember", ["x": "b"])]),
+            Fixtures.text("Saved."),
+        ], confirmer: confirmer)
+        for await _ in await conv.send("look") {}
+        await conv.resetSession()
+        for await _ in await conv.send("remember my interview") {}
+        #expect(await confirmer.asked.value == 0)
+    }
+}

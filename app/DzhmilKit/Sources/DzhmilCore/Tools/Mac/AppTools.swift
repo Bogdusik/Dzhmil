@@ -103,6 +103,7 @@ struct OpenURLTool: Tool {
     let name = "open_url"
     let description = "Open a link in the browser. If the input is text rather than an address, a Google search opens."
     let inputSchema = Schema.object(["url": Schema.string("Address or search query")])
+    let asksAfterUntrustedContent = true
 
     static func directURL(_ raw: String) -> URL? {
         if let u = URL(string: raw), let scheme = u.scheme, ["http", "https"].contains(scheme.lowercased()) { return u }
