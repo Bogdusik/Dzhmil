@@ -140,12 +140,24 @@ public actor Conversation {
         var splitter = SentenceSplitter()
         var emotions = EmotionFilter()
         var fullText = ""
+        var markupSeen = false
+        var retriedMarkup = false
+        func emit(_ sentence: String) {
+            guard !markupSeen else { return }
+            guard ToolMarkup.contains(sentence) else {
+                continuation.yield(.sentence(sentence))
+                return
+            }
+            markupSeen = true
+            let clean = ToolMarkup.strip(sentence)
+            if !clean.isEmpty { continuation.yield(.sentence(clean)) }
+        }
         func pass(_ pieces: [EmotionPiece]) {
-            for piece in pieces {
+            for piece in pieces where !markupSeen {
                 switch piece {
                 case .text(let t):
                     fullText += t
-                    for sentence in splitter.feed(t) { continuation.yield(.sentence(sentence)) }
+                    for sentence in splitter.feed(t) { emit(sentence) }
                 case .emotion(let e):
                     continuation.yield(.emotion(e))
                 }
@@ -198,17 +210,34 @@ public actor Conversation {
                 continuation.yield(.failed(.incomplete))
                 return
             }
+            pass(emotions.flush())
+            if let rest = splitter.flush() { emit(rest) }
+            if markupSeen, uses.isEmpty {
+                fullText = ToolMarkup.strip(fullText)
+                guard !retriedMarkup else {
+                    Log.conversation.error("Tool call written as text again, giving up")
+                    rollback(gen)
+                    currentTask = nil
+                    continuation.yield(.sentence(Self.lostMessage))
+                    continuation.yield(.finished(text: Self.lostMessage, didAct: didAct))
+                    return
+                }
+                Log.conversation.error("Tool call written as text, asking again")
+                retriedMarkup = true
+                markupSeen = false
+                splitter = SentenceSplitter()
+                emotions = EmotionFilter()
+                if !fullText.isEmpty, !fullText.hasSuffix(" ") { fullText += " " }
+                continue
+            }
             history.append(message.asHistoryEntry)
 
-            pass(emotions.flush())
             guard message.stopReason == "tool_use", !uses.isEmpty else {
-                if let rest = splitter.flush() { continuation.yield(.sentence(rest)) }
                 complete(gen)
                 continuation.yield(.finished(text: fullText, didAct: didAct))
                 return
             }
 
-            if let rest = splitter.flush() { continuation.yield(.sentence(rest)) }
             if !fullText.isEmpty, !fullText.hasSuffix(" ") { fullText += " " }
             var results: [JSONValue] = []
             for use in uses {

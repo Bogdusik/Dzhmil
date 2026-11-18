@@ -121,6 +121,26 @@ enum Fixtures {
         #expect(client.requests.first?.effort == "low")
     }
 
+    @Test func toolCallWrittenAsTextIsHiddenAndRetried() async {
+        let junk = "Sure! <invoke name=\"mute\">\n<parameter name=\"muted\">false</parameter>\n</invoke>"
+        let (conv, client) = make([Fixtures.text(junk), Fixtures.text("Unmuted.")])
+        let events = await collect(await conv.send("unmute"))
+        #expect(events == [.sentence("Sure!"), .sentence("Unmuted."), .finished(text: "Sure! Unmuted.", didAct: false)])
+        #expect(client.requests.count == 2)
+        let history = await conv.history
+        #expect(history.count == 2)
+        #expect(history[1]["content"]?.arrayValue?.last?["text"] == "Unmuted.")
+    }
+
+    @Test func toolCallWrittenAsTextTwiceGivesUp() async {
+        let junk = "<invoke name=\"mute\">\n<parameter name=\"muted\">false</parameter>\n</invoke>"
+        let (conv, client) = make([Fixtures.text(junk), Fixtures.text(junk)])
+        let events = await collect(await conv.send("unmute"))
+        #expect(events == [.sentence(Conversation.lostMessage), .finished(text: Conversation.lostMessage, didAct: false)])
+        #expect(client.requests.count == 2)
+        #expect(await conv.history.isEmpty)
+    }
+
     @Test func emotionTagsBecomeEventsAndStayOutOfText() async {
         let raw = "<happy> Yay! All done."
         let message = AssistantMessage(content: [["type": "text", "text": .string(raw)]], stopReason: "end_turn")

@@ -128,6 +128,17 @@ import Testing
         #expect(client.requests.first?.tools.isEmpty == true)
     }
 
+    @Test func usesTheProactivePrompt() async {
+        let client = FakeClaudeClient([Fixtures.text("Morning!")])
+        _ = await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "My name is Alex.")
+        #expect(client.requests.first?.system == PromptBuilder.proactive(profile: "My name is Alex."))
+    }
+
+    @Test func toolCallWrittenAsTextFallsBack() async {
+        let client = FakeClaudeClient([Fixtures.text("Hi! <invoke name=\"mute\">\n<parameter name=\"muted\">false</parameter>\n</invoke>")])
+        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Hi! How's it going?")
+    }
+
     @Test func emptyReplyFallsBack() async {
         let client = FakeClaudeClient([Fixtures.text("   ")])
         #expect(await PhraseWriter.write(.timer("kettle"), client: client, settings: settings, profile: "") == "Reminder: kettle")
