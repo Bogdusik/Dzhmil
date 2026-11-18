@@ -87,13 +87,19 @@ flowchart LR
 - **Pointer maths.** A spot Claude picks on a screenshot is mapped back to global screen coordinates through the captured rect and pixel scale, across displays.
 - **Tested core.** All logic lives in a dependency-free Swift package (`DzhmilKit`) with 287 Swift Testing tests, run on every push by GitHub Actions. The app target stays thin.
 
-## Requirements
+## Install
 
-- macOS 15 or later, Apple Silicon
-- Xcode 27 and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
-- An Anthropic API key from the [Claude Console](https://platform.claude.com)
+You need macOS 15 or later on Apple Silicon, and an Anthropic API key from the [Claude Console](https://platform.claude.com).
 
-## Build and run
+1. Download `Dzhmil-<version>.dmg` from the [latest release](https://github.com/Bogdusik/Dzhmil/releases/latest), open it and drag **Dzhmil** onto **Applications**.
+2. Open Dzhmil. The app is not notarized yet, so macOS stops it the first time: click **Done**, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. You only do this once. (Or run `xattr -dr com.apple.quarantine /Applications/Dzhmil.app` in Terminal.)
+3. The drone appears and asks for your API key in a speech bubble. Paste it, and it is stored in the macOS Keychain.
+
+Dzhmil uses your own Anthropic API key, so you pay Anthropic directly for what you use; with the default model and prompt caching a typical exchange costs around a cent, and you can switch to a cheaper model in Settings. The first voice request downloads the Whisper model (about 630 MB) into `~/Library/Application Support/Dzhmil/models`.
+
+## Build from source
+
+You also need Xcode 27 and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ```bash
 cd app
@@ -103,12 +109,16 @@ open Dzhmil.xcodeproj
 
 Put your own team ID in `DEVELOPMENT_TEAM` in `app/project.yml` (or pick your team in the target settings), then Run. A stable "Apple Development" signature keeps macOS permissions (microphone, automation) across rebuilds.
 
-Dzhmil uses your own Anthropic API key, so you pay Anthropic directly for what you use; with the default model and prompt caching a typical exchange costs around a cent, and you can switch to a cheaper model in Settings. On first launch Dzhmil asks for the key in a speech bubble and stores it in the macOS Keychain. The first voice request downloads the Whisper model (about 630 MB) into `~/Library/Application Support/Dzhmil/models`.
-
 Run the tests:
 
 ```bash
 swift test --package-path app/DzhmilKit
+```
+
+Package a DMG like the one in the release (ad-hoc signed, written to `dist/`):
+
+```bash
+scripts/make-dmg.sh
 ```
 
 ## Project layout

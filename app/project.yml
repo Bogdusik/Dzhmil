@@ -35,9 +35,10 @@ targets:
       path: Dzhmil/Info.plist
       properties:
         CFBundleDisplayName: Dzhmil
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.2.0"
+        CFBundleVersion: "2"
         LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: "15.0"
         NSMicrophoneUsageDescription: Dzhmil listens only while you hold the talk key.
         NSAppleEventsUsageDescription: Dzhmil controls apps when you ask it to.
