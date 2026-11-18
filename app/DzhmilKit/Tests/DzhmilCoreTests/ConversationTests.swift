@@ -2,10 +2,10 @@ import Foundation
 import Testing
 @testable import DzhmilCore
 
-final class FakeClaudeClient: ClaudeClient, @unchecked Sendable {
+final class FakeChatClient: ChatClient, @unchecked Sendable {
     indirect enum Step: Sendable {
         case reply(deltas: [String], message: AssistantMessage)
-        case fail(ClaudeError)
+        case fail(ChatError)
         case hang
         case after(Duration, Step)
     }
@@ -74,11 +74,11 @@ final class TestClock: @unchecked Sendable {
 }
 
 enum Fixtures {
-    static func text(_ t: String) -> FakeClaudeClient.Step {
+    static func text(_ t: String) -> FakeChatClient.Step {
         .reply(deltas: [t], message: AssistantMessage(content: [["type": "thinking", "thinking": "", "signature": "sig1"], ["type": "text", "text": .string(t)]], stopReason: "end_turn"))
     }
 
-    static func toolCall(_ uses: [(String, String, JSONValue)], text: String = "") -> FakeClaudeClient.Step {
+    static func toolCall(_ uses: [(String, String, JSONValue)], text: String = "") -> FakeChatClient.Step {
         var content: [JSONValue] = [["type": "thinking", "thinking": "", "signature": "sig2"]]
         if !text.isEmpty { content.append(["type": "text", "text": .string(text)]) }
         for (id, name, input) in uses { content.append(["type": "tool_use", "id": .string(id), "name": .string(name), "input": input]) }
@@ -89,8 +89,8 @@ enum Fixtures {
 @Suite struct ConversationTests {
     let clock = TestClock(ISO8601DateFormatter().date(from: "2026-11-15T14:05:00Z")!)
 
-    func make(_ steps: [FakeClaudeClient.Step], tools: [any Tool] = [RecordingTool(name: "open_app")], confirm: ScriptedConfirmer.Mode = .yes) -> (Conversation, FakeClaudeClient) {
-        let client = FakeClaudeClient(steps)
+    func make(_ steps: [FakeChatClient.Step], tools: [any Tool] = [RecordingTool(name: "open_app")], confirm: ScriptedConfirmer.Mode = .yes) -> (Conversation, FakeChatClient) {
+        let client = FakeChatClient(steps)
         let executor = ToolExecutor(tools: tools, confirmer: ScriptedConfirmer(mode: confirm))
         let clock = self.clock
         let conv = Conversation(client: client, executor: executor,
@@ -308,7 +308,7 @@ enum Fixtures {
     }
 
     @Test func emptyReplyAfterToolKeepsTheToolRound() async {
-        let empty = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [], stopReason: "end_turn"))
+        let empty = FakeChatClient.Step.reply(deltas: [], message: AssistantMessage(content: [], stopReason: "end_turn"))
         let (conv, _) = make([Fixtures.toolCall([("t", "open_app", ["x": "1"])]), empty])
         let events = await collect(await conv.send("open"))
         #expect(events.last == .finished(text: "", didAct: true))
@@ -316,7 +316,7 @@ enum Fixtures {
     }
 
     @Test func truncatedToolUseFails() async {
-        let truncated = FakeClaudeClient.Step.reply(deltas: [], message: AssistantMessage(content: [["type": "tool_use", "id": "t", "name": "open_app", "input": ["x": "1"]]], stopReason: "max_tokens"))
+        let truncated = FakeChatClient.Step.reply(deltas: [], message: AssistantMessage(content: [["type": "tool_use", "id": "t", "name": "open_app", "input": ["x": "1"]]], stopReason: "max_tokens"))
         let (conv, _) = make([truncated])
         let events = await collect(await conv.send("open"))
         #expect(events == [.failed(.incomplete)])
@@ -333,7 +333,7 @@ enum Fixtures {
     }
 
     @Test func systemIsFrozenWithinSession() async {
-        let client = FakeClaudeClient([Fixtures.text("One."), Fixtures.text("Two."), Fixtures.text("Three.")])
+        let client = FakeChatClient([Fixtures.text("One."), Fixtures.text("Two."), Fixtures.text("Three.")])
         let profile = ProfileBox("Profile A")
         let conv = Conversation(client: client, executor: ToolExecutor(tools: [], confirmer: ScriptedConfirmer(mode: .yes)),
                                 settings: { ConversationSettings(model: "claude-opus-5-5", effort: "low") },

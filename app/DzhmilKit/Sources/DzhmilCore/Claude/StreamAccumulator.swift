@@ -37,7 +37,7 @@ public struct AssistantMessage: Equatable, Sendable {
     }
 }
 
-public struct StreamAccumulator: Sendable {
+public struct StreamAccumulator: StreamDecoder {
     private var blocks: [Int: [String: JSONValue]] = [:]
     private var partialJSON: [Int: String] = [:]
     private var stopReason: String?
@@ -62,7 +62,7 @@ public struct StreamAccumulator: Sendable {
             if let reason = payload["delta"]?["stop_reason"]?.stringValue { stopReason = reason }
         case "error":
             let err = payload["error"]
-            throw ClaudeError.fromStream(type: err?["type"]?.stringValue ?? "", message: err?["message"]?.stringValue ?? "")
+            throw ChatError.fromStream(type: err?["type"]?.stringValue ?? "", message: err?["message"]?.stringValue ?? "")
         default:
             break
         }
@@ -94,8 +94,8 @@ public struct StreamAccumulator: Sendable {
     }
 
     public func finish() throws -> AssistantMessage {
-        if stopReason == "refusal" { throw ClaudeError.refusal }
-        guard stopReason != nil else { throw ClaudeError.incomplete }
+        if stopReason == "refusal" { throw ChatError.refusal }
+        guard stopReason != nil else { throw ChatError.incomplete }
         let content = blocks.keys.sorted().compactMap { blocks[$0].map(JSONValue.object) }
         return AssistantMessage(content: content, stopReason: stopReason)
     }

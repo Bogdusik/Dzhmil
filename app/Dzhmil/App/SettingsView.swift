@@ -12,6 +12,16 @@ final class SettingsModel {
     var keyDraft = ""
     var keyStatus = ""
     var checking = false
+    var modelChoices: [String] = []
+    var provider: Provider {
+        get { settings.provider }
+        set {
+            settings.provider = newValue
+            keyDraft = ""
+            refreshKeyStatus()
+            loadModels()
+        }
+    }
     var profile: String { didSet { if !reloading { profileDirty = true } } }
     @ObservationIgnored private var profileDirty = false
     @ObservationIgnored private var reloading = false
@@ -23,9 +33,30 @@ final class SettingsModel {
         self.companion = companion
         settings = companion.settings
         profile = companion.profileStore.load()
-        keyStatus = companion.keychain.read() == nil ? "No key saved." : "Key saved in the Keychain."
+        refreshKeyStatus()
+        loadModels()
         profileObserver = NotificationCenter.default.addObserver(forName: ProfileStore.didChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reloadProfile() }
+        }
+    }
+
+    func refreshKeyStatus() {
+        guard settings.provider.needsKey else {
+            keyStatus = ""
+            return
+        }
+        keyStatus = companion.keychain.read() == nil ? "No key saved." : "Key saved in the Keychain."
+    }
+
+    func loadModels() {
+        let provider = settings.provider
+        modelChoices = provider.suggestedModels
+        guard provider != .anthropic, !provider.needsKey || companion.keychain.read() != nil else { return }
+        let key = companion.keychain.read()
+        Task {
+            guard let ids = try? await ModelCatalog.fetch(provider, key: key), !ids.isEmpty,
+                  settings.provider == provider else { return }
+            modelChoices = provider == .openai ? provider.suggestedModels + ids.filter { !provider.suggestedModels.contains($0) } : ids
         }
     }
 
@@ -43,6 +74,7 @@ final class SettingsModel {
             try companion.keychain.save(key)
             keyDraft = ""
             keyStatus = "Key saved in the Keychain."
+            loadModels()
         } catch {
             keyStatus = "Couldn't save the key."
         }
@@ -55,7 +87,7 @@ final class SettingsModel {
         Task {
             let error = await companion.checkKey()
             checking = false
-            keyStatus = error?.userMessage ?? "The key works."
+            keyStatus = error?.userMessage ?? "It works."
         }
     }
 
@@ -85,25 +117,55 @@ final class SettingsModel {
 struct SettingsView: View {
     @Bindable var model: SettingsModel
 
-    private let modelTitles = ["claude-opus-5-5": "Claude Opus 5.5 (smartest)", "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5 (cheapest)"]
+    private let modelTitles = ["claude-opus-5-5": "Claude Opus 5.5 (smartest)", "claude-sonnet-5-5": "Claude Sonnet 5.5", "claude-haiku-5-5": "Claude Haiku 5.5 (cheapest)",
+                               "gpt-6.2-astra": "GPT-6.2 Astra (smartest)", "gpt-6.2-sol": "GPT-6.2 Sol", "gpt-6-luna": "GPT-6 Luna (cheapest)",
+                               "openrouter/auto": "Auto (OpenRouter picks)"]
     private let effortTitles = ["low": "Quick", "medium": "Balanced", "high": "Thorough"]
 
     var body: some View {
         Form {
             Section("Brain") {
-                SecureField("API key", text: $model.keyDraft, prompt: Text("sk-ant-…"))
-                    .onSubmit { model.saveKey() }
+                Picker("Provider", selection: $model.provider) {
+                    ForEach(Provider.allCases) { Text($0.title).tag($0) }
+                }
+                if model.provider.needsKey {
+                    SecureField("API key", text: $model.keyDraft, prompt: Text(model.provider.keyPlaceholder))
+                        .onSubmit { model.saveKey() }
+                } else {
+                    Text("Runs on this Mac, free and offline. Install Ollama, then pull a model that can use tools, for example `ollama pull qwen3`.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
                 HStack {
-                    Button("Save") { model.saveKey() }
+                    if model.provider.needsKey { Button("Save") { model.saveKey() } }
                     Button("Check") { model.checkKey() }.disabled(model.checking)
+                    Link(model.provider.needsKey ? "Get a key" : "Get Ollama", destination: model.provider.keyPage)
                     Spacer()
                     Text(model.keyStatus).foregroundStyle(.secondary).font(.callout)
                 }
-                Picker("Model", selection: $model.settings.model) {
-                    ForEach(AppSettings.models, id: \.self) { Text(modelTitles[$0] ?? $0).tag($0) }
+                if model.provider == .anthropic {
+                    Picker("Model", selection: $model.settings.model) {
+                        ForEach(AppSettings.models, id: \.self) { Text(modelTitles[$0] ?? $0).tag($0) }
+                    }
+                } else {
+                    HStack {
+                        TextField("Model", text: $model.settings.model, prompt: Text(model.provider.defaultModel))
+                        Menu("Choose") {
+                            ForEach(model.modelChoices, id: \.self) { id in
+                                Button(modelTitles[id] ?? id) { model.settings.model = id }
+                            }
+                        }
+                        .fixedSize()
+                    }
                 }
                 Picker("Thinking", selection: $model.settings.effort) {
                     ForEach(AppSettings.efforts, id: \.self) { Text(effortTitles[$0] ?? $0).tag($0) }
+                }
+                .disabled(!model.provider.sendsEffort)
+                if model.provider != .anthropic {
+                    Text("Dzhmil is tuned for Claude. Other models work, but may point less precisely or skip tools; pick one that supports tool calling and images.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
             Section("Voice") {
@@ -138,7 +200,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 640)
+        .frame(width: 500, height: 700)
     }
 }
 

@@ -117,10 +117,11 @@ public enum PhraseWriter {
         }
     }
 
-    public static func write(_ t: ProactiveTrigger, client: any ClaudeClient, settings: ConversationSettings, profile: String) async -> String {
+    public static func write(_ t: ProactiveTrigger, client: any ChatClient, settings: ConversationSettings, profile: String) async -> String {
         let prompt = "[Note] You are speaking first. Reason: \(reason(t)). Say one or two short, lively sentences, without quotes."
         let request = MessagesRequest(model: settings.model, system: PromptBuilder.proactive(profile: profile),
-                                      messages: [["role": "user", "content": .string(prompt)]], tools: [], effort: settings.effort, maxTokens: 4096)
+                                      messages: [["role": "user", "content": .string(prompt)]], tools: [], effort: settings.effort, maxTokens: 4096,
+                                      provider: settings.provider)
         var final: AssistantMessage?
         do {
             for try await event in client.stream(request) {

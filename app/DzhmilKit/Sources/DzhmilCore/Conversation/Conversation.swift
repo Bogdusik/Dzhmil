@@ -1,10 +1,12 @@
 import Foundation
 
 public struct ConversationSettings: Equatable, Sendable {
+    public var provider: Provider
     public var model: String
     public var effort: String
 
-    public init(model: String, effort: String) {
+    public init(model: String, effort: String, provider: Provider = .anthropic) {
+        self.provider = provider
         self.model = model
         self.effort = effort
     }
@@ -16,7 +18,7 @@ public enum ConversationEvent: Equatable, Sendable {
     case toolStarted(String)
     case toolFinished(String, ran: Bool)
     case finished(text: String, didAct: Bool)
-    case failed(ClaudeError)
+    case failed(ChatError)
 }
 
 public actor Conversation {
@@ -25,7 +27,7 @@ public actor Conversation {
     static let maxMessages = 60
     static let lostMessage = "I got confused, let's try another way."
 
-    private let client: any ClaudeClient
+    private let client: any ChatClient
     private let executor: ToolExecutor
     private let settings: @Sendable () -> ConversationSettings
     private let profile: @Sendable () -> String
@@ -37,11 +39,12 @@ public actor Conversation {
     private var pendingRemark: String?
     private var turnSnapshot: [JSONValue]?
     private var sessionSystem: String?
+    private var sessionProvider: Provider?
     private var currentTask: Task<Void, Never>?
     private var generation = 0
     private var resetPending = false
 
-    public init(client: any ClaudeClient, executor: ToolExecutor,
+    public init(client: any ChatClient, executor: ToolExecutor,
                 settings: @escaping @Sendable () -> ConversationSettings,
                 profile: @escaping @Sendable () -> String,
                 now: @escaping @Sendable () -> Date = { Date() },
@@ -78,6 +81,7 @@ public actor Conversation {
         history = []
         lastActivity = nil
         sessionSystem = nil
+        sessionProvider = nil
         resetPending = false
     }
 
@@ -92,8 +96,10 @@ public actor Conversation {
 
     public func send(_ text: String) -> AsyncStream<ConversationEvent> {
         cancel()
-        if resetPending { clearSession() }
+        let s = settings()
+        if resetPending || (sessionProvider != nil && sessionProvider != s.provider) { clearSession() }
         resetIfStale()
+        sessionProvider = s.provider
         let (stream, continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
         generation += 1
         let gen = generation
@@ -104,7 +110,7 @@ public actor Conversation {
         pendingRemark = nil
         appendUserText(content)
         lastActivity = now()
-        currentTask = Task { await self.runTurn(gen: gen, system: system, continuation: continuation) }
+        currentTask = Task { await self.runTurn(gen: gen, system: system, settings: s, continuation: continuation) }
         return stream
     }
 
@@ -135,7 +141,7 @@ public actor Conversation {
         lastActivity = now()
     }
 
-    private func runTurn(gen: Int, system: String, continuation: AsyncStream<ConversationEvent>.Continuation) async {
+    private func runTurn(gen: Int, system: String, settings s: ConversationSettings, continuation: AsyncStream<ConversationEvent>.Continuation) async {
         defer { continuation.finish() }
         var splitter = SentenceSplitter()
         var emotions = EmotionFilter()
@@ -167,8 +173,7 @@ public actor Conversation {
         let tools = executor.definitions
 
         for _ in 0..<Self.maxRounds {
-            let s = settings()
-            let request = MessagesRequest(model: s.model, system: system, messages: history, tools: tools, effort: s.effort)
+            let request = MessagesRequest(model: s.model, system: system, messages: history, tools: tools, effort: s.effort, provider: s.provider)
             var final: AssistantMessage?
             do {
                 for try await event in client.stream(request) {
@@ -183,11 +188,11 @@ public actor Conversation {
             } catch {
                 guard isCurrent(gen) else { return }
                 rollback(gen)
-                let claudeError = error as? ClaudeError ?? .network
-                Log.conversation.error("Turn failed: \(String(describing: claudeError), privacy: .public)")
-                if case .api(let status, _) = claudeError, (400..<500).contains(status) { clearSession() }
+                let chatError = error as? ChatError ?? .network
+                Log.conversation.error("Turn failed: \(String(describing: chatError), privacy: .public)")
+                if case .api(let status, _) = chatError, (400..<500).contains(status) { clearSession() }
                 currentTask = nil
-                continuation.yield(.failed(claudeError))
+                continuation.yield(.failed(chatError))
                 return
             }
             guard isCurrent(gen) else { return }

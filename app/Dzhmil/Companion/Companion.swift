@@ -19,7 +19,6 @@ final class Companion {
     static let notHeardMessage = "Sorry, I didn't catch that."
 
     let director = DroneDirector()
-    let keychain = KeychainStore()
     let profileStore = ProfileStore()
     let timers = TimerStore(file: TimerStore.defaultFile)
     let settingsBox = SettingsBox(AppSettings.load(from: .standard))
@@ -27,7 +26,7 @@ final class Companion {
     let transcriber = Transcriber()
 
     private(set) lazy var confirmer = BubbleConfirmer(director: director)
-    private(set) lazy var client = URLSessionClaudeClient(apiKey: { [keychain] in keychain.read() })
+    private(set) lazy var client = RoutingClient(apiKey: { KeychainStore(account: $0.keyAccount).read() })
     private(set) lazy var conversation: Conversation = {
         let box = settingsBox
         let profile = profileStore
@@ -85,6 +84,8 @@ final class Companion {
         }
     }
 
+    var keychain: KeychainStore { KeychainStore(account: settings.provider.keyAccount) }
+    var needsKey: Bool { settings.provider.needsKey && keychain.read() == nil }
     var model: CompanionViewModel { director.model }
     var isListening: Bool { gate.isDown }
 
@@ -123,13 +124,14 @@ final class Companion {
         director.hum.enabled = s.propellerSound
     }
 
-    func checkKey() async -> ClaudeError? {
+    func checkKey() async -> ChatError? {
         let request = MessagesRequest(model: settings.model, system: "Answer in one word.",
-                                      messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512)
+                                      messages: [["role": "user", "content": "ping"]], tools: [], effort: "low", maxTokens: 512,
+                                      provider: settings.provider)
         do {
             for try await _ in client.stream(request) {}
             return nil
-        } catch let error as ClaudeError {
+        } catch let error as ChatError {
             Log.app.error("Key check failed: \(String(describing: error), privacy: .public)")
             return error
         } catch {
