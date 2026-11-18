@@ -113,7 +113,7 @@ final class Companion {
         director.start()
         applySettings()
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })
-        Task.detached(priority: .utility) { [transcriber] in try? await transcriber.prepare() }
+        if Transcriber.isModelDownloaded { prepareHearing() }
         proactive.start()
     }
 
@@ -197,6 +197,7 @@ final class Companion {
             break
         }
 
+        prepareHearing()
         utteranceGeneration += 1
         answeringConfirmation = director.machine.pendingConfirmation ? confirmer.currentID : nil
         if answeringConfirmation == nil { show(nil) } else { confirmer.startAnswering() }
@@ -209,6 +210,10 @@ final class Companion {
                 self.pttUp()
             }
         }
+    }
+
+    private func prepareHearing() {
+        Task.detached(priority: .utility) { [transcriber] in try? await transcriber.prepare() }
     }
 
     func pttUp() {
