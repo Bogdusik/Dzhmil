@@ -59,6 +59,7 @@ public enum MemoryNotes {
 
 struct RememberTool: SafeTool {
     let profile: ProfileStore
+    let asksAfterUntrustedContent = true
     let name = "remember"
     let description = "Remember a fact about the user for good, only when they explicitly ask you to. Short, in your own words, up to 200 characters."
     let inputSchema = Schema.object(["fact": Schema.string("What to remember, for example “Job interview on Thursday at 10:00”")])
@@ -69,10 +70,15 @@ struct RememberTool: SafeTool {
         try profile.save(text)
         return "Remembered: \(MemoryNotes.clean(fact))"
     }
+
+    func confirmation(for input: JSONValue) -> ConfirmationRequest {
+        ConfirmationRequest(question: "Remember this?", detail: input["fact"]?.stringValue.map(MemoryNotes.clean))
+    }
 }
 
 struct ForgetTool: SafeTool {
     let profile: ProfileStore
+    let asksAfterUntrustedContent = true
     let name = "forget"
     let description = "Forget something remembered earlier: removes memory items that contain this text."
     let inputSchema = Schema.object(["query": Schema.string("A word or part of the item to forget")])
@@ -81,5 +87,9 @@ struct ForgetTool: SafeTool {
         let (text, removed) = try MemoryNotes.removing(try input.requiredString("query"), from: profile.load())
         try profile.save(text)
         return "Forgot: " + removed.joined(separator: "; ")
+    }
+
+    func confirmation(for input: JSONValue) -> ConfirmationRequest {
+        ConfirmationRequest(question: "Forget what matches this?", detail: input["query"]?.stringValue)
     }
 }

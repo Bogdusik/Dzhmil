@@ -14,6 +14,7 @@ struct ReadClipboardTool: SafeTool {
     let reader: any ClipboardReader
     let beforeRead: @Sendable () async -> Bool
     let name = "read_clipboard"
+    let readsUntrustedContent = true
     let description = "Read the text the user copied: an error, code or a message. Call it only when they ask about what they copied."
     let inputSchema = Schema.object([:])
     var outputLimit: Int { Self.maxCharacters + 200 }

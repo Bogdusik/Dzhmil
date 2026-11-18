@@ -85,7 +85,7 @@ flowchart LR
 
 - **Swift 6, no SDK.** Every provider is called over plain HTTP with a hand-written SSE parser. Sentences are spoken as soon as they arrive.
 - **One conversation, several providers.** History is kept in Claude's Messages format; small adapters translate it to OpenAI's Responses API (which newer GPT models need for tool calls) or to Chat Completions (Gemini, OpenRouter, Ollama) and translate the stream back, so the tool loop, confirmations and emotions are shared. OpenAI reasoning items and Gemini thought signatures are carried through tool rounds.
-- **Safety lives in code, not in the prompt.** Each tool declares its own risk; the executor shows a confirmation, times out to "no", and ignores late answers meant for an earlier question. Links that carry data, AppleScript, shell commands, quitting apps and power actions always ask first.
+- **Safety lives in code, not in the prompt.** Each tool declares its own risk; the executor shows a confirmation, times out to "no", and ignores late answers meant for an earlier question. Links that carry data, AppleScript, shell commands, quitting apps and power actions always ask first; after a screenshot or clipboard read, memory changes and any link do too.
 - **Append-only history.** The conversation is never edited after the fact, so Claude's preserved thinking stays valid and prompt caching stays warm; long or idle sessions start fresh instead of being trimmed.
 - **Cheap to keep around.** The drone is drawn and animated with Core Animation in the render server: 0.3% CPU while hovering. Flight is a critically damped spring, so throws glide and settle without overshoot.
 - **Pointer maths.** A spot Claude picks on a screenshot is mapped back to global screen coordinates through the captured rect and pixel scale, across displays.
@@ -160,7 +160,7 @@ docs/superpowers/specs/    design documents for each feature
 - Screenshots are taken only when you ask, always with a visible flash and bubble, and are sent to the AI provider you chose as part of that conversation (nothing leaves the Mac with Ollama). Dzhmil's own windows are never in the shot.
 - The clipboard is read only when you ask about what you copied, never if a password manager marked it secret, and at most 8000 characters are sent.
 - Your profile and what Dzhmil remembers live in `~/Library/Application Support/Dzhmil/profile.md`, editable in Settings. Timers are kept in `timers.json` next to it, so a reminder survives a restart.
-- Text on the screen or in the clipboard is treated as data, never as instructions.
+- Text on the screen or in the clipboard is treated as data, never as instructions. Once Dzhmil has looked at the screen or the clipboard in a conversation, saving to its memory and opening links wait for your "yes", so text it read can't plant instructions for later.
 
 ## Troubleshooting
 

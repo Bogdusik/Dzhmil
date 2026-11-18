@@ -32,10 +32,14 @@ public protocol Tool: Sendable {
     func run(_ input: JSONValue) async throws -> String
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput
     var outputLimit: Int { get }
+    var readsUntrustedContent: Bool { get }
+    var asksAfterUntrustedContent: Bool { get }
 }
 
 extension Tool {
     public var outputLimit: Int { 4000 }
+    public var readsUntrustedContent: Bool { false }
+    public var asksAfterUntrustedContent: Bool { false }
 
     public func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
         ToolRichOutput(text: try await run(input), images: [])
