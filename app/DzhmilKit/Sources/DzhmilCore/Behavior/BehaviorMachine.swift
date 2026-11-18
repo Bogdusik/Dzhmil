@@ -25,10 +25,6 @@ public struct BehaviorMachine: Sendable {
         state == .hover && !quiet && !fullscreen
     }
 
-    public var canSpeakFirst: Bool {
-        [.hover, .flying, .sleeping].contains(state) && !quiet && !fullscreen
-    }
-
     public mutating func handle(_ event: BehaviorEvent) -> [BehaviorEffect] {
         switch event {
         case .pttDown:
