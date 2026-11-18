@@ -10,8 +10,11 @@ public struct MessagesRequest: Sendable {
     public var tools: [JSONValue]
     public var effort: String
     public var maxTokens: Int
+    public var provider: Provider
 
-    public init(model: String, system: String, messages: [JSONValue], tools: [JSONValue], effort: String, maxTokens: Int = 16000) {
+    public init(model: String, system: String, messages: [JSONValue], tools: [JSONValue], effort: String, maxTokens: Int = 16000,
+                provider: Provider = .anthropic) {
+        self.provider = provider
         self.model = model
         self.system = system
         self.messages = messages

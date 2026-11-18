@@ -117,10 +117,11 @@ public enum PhraseWriter {
         }
     }
 
-    public static func write(_ t: ProactiveTrigger, client: any ClaudeClient, settings: ConversationSettings, profile: String) async -> String {
+    public static func write(_ t: ProactiveTrigger, client: any ChatClient, settings: ConversationSettings, profile: String) async -> String {
         let prompt = "[Note] You are speaking first. Reason: \(reason(t)). Say one or two short, lively sentences, without quotes."
-        let request = MessagesRequest(model: settings.model, system: PromptBuilder.system(profile: profile),
-                                      messages: [["role": "user", "content": .string(prompt)]], tools: [], effort: settings.effort, maxTokens: 4096)
+        let request = MessagesRequest(model: settings.model, system: PromptBuilder.proactive(profile: profile),
+                                      messages: [["role": "user", "content": .string(prompt)]], tools: [], effort: settings.effort, maxTokens: 4096,
+                                      provider: settings.provider)
         var final: AssistantMessage?
         do {
             for try await event in client.stream(request) {
@@ -130,8 +131,9 @@ public enum PhraseWriter {
             Log.conversation.error("Proactive phrase failed: \(String(describing: error), privacy: .public)")
             return template(t)
         }
-        let text = EmotionFilter.strip(final?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return template(t) }
+        let raw = final?.text ?? ""
+        let text = EmotionFilter.strip(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !ToolMarkup.contains(raw) else { return template(t) }
         var splitter = SentenceSplitter()
         var sentences = splitter.feed(text)
         if let rest = splitter.flush() { sentences.append(rest) }

@@ -74,12 +74,12 @@ import Testing
     @Test func refusalThrows() throws {
         var a = StreamAccumulator()
         for e in [start, messageDelta("refusal")] { _ = try a.consume(e) }
-        #expect(throws: ClaudeError.refusal) { try a.finish() }
+        #expect(throws: ChatError.refusal) { try a.finish() }
     }
 
     @Test func streamErrorThrows() {
         var a = StreamAccumulator()
-        #expect(throws: ClaudeError.overloaded) {
+        #expect(throws: ChatError.overloaded) {
             try a.consume(SSEEvent(event: "error", data: #"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#))
         }
     }
@@ -89,7 +89,7 @@ import Testing
         for e in [start, blockStart(0, #"{"type":"text","text":""}"#), delta(0, #"{"type":"text_delta","text":"Hal"}"#)] {
             _ = try a.consume(e)
         }
-        #expect(throws: ClaudeError.incomplete) { try a.finish() }
+        #expect(throws: ChatError.incomplete) { try a.finish() }
     }
 
     @Test func pingIsIgnored() throws {

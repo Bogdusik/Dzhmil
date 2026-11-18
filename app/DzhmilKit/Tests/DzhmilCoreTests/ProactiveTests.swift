@@ -113,23 +113,34 @@ import Testing
     }
 
     @Test func fallsBackToTemplateOnError() async {
-        let client = FakeClaudeClient([.fail(.network)])
+        let client = FakeChatClient([.fail(.network)])
         #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Hi! How's it going?")
     }
 
     @Test func emotionTagsAreNotSpoken() async {
-        let client = FakeClaudeClient([Fixtures.text("<happy> Good morning! <thinking>Did you sleep well?")])
+        let client = FakeChatClient([Fixtures.text("<happy> Good morning! <thinking>Did you sleep well?")])
         #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Good morning! Did you sleep well?")
     }
 
     @Test func keepsFirstTwoSentences() async {
-        let client = FakeClaudeClient([Fixtures.text("Good morning! Did you sleep well? I'm already up. More")])
+        let client = FakeChatClient([Fixtures.text("Good morning! Did you sleep well? I'm already up. More")])
         #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Good morning! Did you sleep well?")
         #expect(client.requests.first?.tools.isEmpty == true)
     }
 
+    @Test func usesTheProactivePrompt() async {
+        let client = FakeChatClient([Fixtures.text("Morning!")])
+        _ = await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "My name is Alex.")
+        #expect(client.requests.first?.system == PromptBuilder.proactive(profile: "My name is Alex."))
+    }
+
+    @Test func toolCallWrittenAsTextFallsBack() async {
+        let client = FakeChatClient([Fixtures.text("Hi! <invoke name=\"mute\">\n<parameter name=\"muted\">false</parameter>\n</invoke>")])
+        #expect(await PhraseWriter.write(.dailyGreeting, client: client, settings: settings, profile: "") == "Hi! How's it going?")
+    }
+
     @Test func emptyReplyFallsBack() async {
-        let client = FakeClaudeClient([Fixtures.text("   ")])
+        let client = FakeChatClient([Fixtures.text("   ")])
         #expect(await PhraseWriter.write(.timer("kettle"), client: client, settings: settings, profile: "") == "Reminder: kettle")
     }
 }

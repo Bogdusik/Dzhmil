@@ -4,7 +4,7 @@ import DzhmilCore
 
 @MainActor
 final class Onboarding {
-    static let greeting = "Hi! I'm Dzhmil. To think, I need an API key from the Claude Console. Paste it here."
+    static let greeting = "Hi! I'm Dzhmil. To think, I need an API key from Claude, ChatGPT, Gemini or OpenRouter. Paste it here."
 
     private unowned let companion: Companion
 
@@ -13,7 +13,7 @@ final class Onboarding {
     }
 
     func startIfNeeded() {
-        guard companion.keychain.read() == nil else { return }
+        guard companion.needsKey else { return }
         companion.onboardingSubmit = { [weak self] key in self?.submit(key) }
         Task {
             try? await Task.sleep(for: .seconds(3))
@@ -26,6 +26,9 @@ final class Onboarding {
         guard !key.isEmpty else {
             companion.showOnboarding(Self.greeting)
             return
+        }
+        if let provider = Provider.detect(key: key), provider != companion.settings.provider {
+            companion.settings.provider = provider
         }
         do {
             try companion.keychain.save(key)

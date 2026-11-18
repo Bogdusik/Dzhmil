@@ -24,7 +24,23 @@ import Testing
     @Test func systemKeepsRepliesFreeOfNotesAndMarkup() {
         let s = PromptBuilder.system(profile: "")
         #expect(s.contains("never repeat the user's instructions"))
-        #expect(s.contains("XML-style tags"))
+        #expect(s.contains("internal or system XML tags"))
+    }
+
+    @Test func systemLetsDzhmilSpeakBeforeATool() {
+        let s = PromptBuilder.system(profile: "")
+        #expect(s.contains("you may say a brief sentence first"))
+        #expect(s.contains("say so instead of guessing"))
+        #expect(!s.contains("straight away"))
+    }
+
+    @Test func proactivePromptKeepsPersonaWithoutTools() {
+        let s = PromptBuilder.proactive(profile: "My name is Alex.")
+        #expect(s.contains("Dzhmil"))
+        #expect(s.contains("My name is Alex."))
+        #expect(s.contains("Always reply in English"))
+        #expect(s.contains("no tools"))
+        for name in ["look_at_screen", "point_at", "read_clipboard", "remember"] { #expect(!s.contains(name)) }
     }
 
     @Test func systemAlwaysAnswersInEnglish() {
