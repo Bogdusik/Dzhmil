@@ -15,6 +15,8 @@ Runs on Claude, ChatGPT, Gemini, any model on OpenRouter, or a local model throu
 ![OpenAI API](https://img.shields.io/badge/OpenAI-API-412991)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)](LICENSE)
 
+<a href="https://github.com/Bogdusik/Dzhmil/releases/latest"><img src="https://img.shields.io/github/v/release/Bogdusik/Dzhmil?label=Download%20for%20macOS&logo=apple&logoColor=white&style=for-the-badge&color=14b8a6" alt="Download the latest Dzhmil DMG for macOS" height="36"></a>
+
 </div>
 
 Dzhmil (from the Ukrainian word for "bumblebee") hovers over your windows, perches on the Dock, falls asleep when you step away and wakes up with a happy wiggle. Hold a key and ask it anything: how your Mac is doing, to open or quit apps, to set a reminder, or why the app in front of you isn't doing what you want. It looks, explains, and flies over to show you where to click.
