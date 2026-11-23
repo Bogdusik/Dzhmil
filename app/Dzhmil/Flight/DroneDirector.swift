@@ -29,6 +29,9 @@ final class DroneDirector {
     private var idleAnimator = IdleAnimator()
     private var nextGestureAt = Date().addingTimeInterval(10)
     private var chasePolicy = ChasePolicy()
+    private var soloPlanner = SoloPlanner()
+    private var nextSoloAt = Date.distantFuture
+    private var wasAway = false
     private var chaseUntil: Date?
     private var chaseReturn: CGPoint?
     private var lastChaseStep = Date.distantPast
@@ -200,7 +203,17 @@ final class DroneDirector {
         }
 
         let now = Date()
+        let away = Presence.isAway(cursorOnDroneScreen: ScreenEnvironment.cursorIsOnScreen(containing: flight.droneCenter), secondsSinceInput: sinceInput)
+        if away != wasAway {
+            wasAway = away
+            var rng = SystemRandomNumberGenerator()
+            nextSoloAt = away ? now.addingTimeInterval(SoloPlanner.delay(using: &rng)) : .distantFuture
+        }
         lifeGestures(now)
+        if away {
+            soloTick(now)
+            return
+        }
         if chaseUntil == nil, machine.canWander, !isHidden, now >= nextWanderAt, now >= dragLockUntil, model.bubble == nil, dragStart == nil, !flight.isMoving {
             nextWanderAt = now.addingTimeInterval(.random(in: Self.wanderInterval))
             let screen = ScreenEnvironment.currentScreen()
@@ -208,6 +221,32 @@ final class DroneDirector {
             let spot = PerchPlanner.nextSpot(screen: screen, droneSize: DronePanel.droneSize, cursor: ScreenEnvironment.cursor(),
                                              windowTops: ScreenEnvironment.windowTops(on: screen), using: &rng)
             cruise(to: spot.point)
+        }
+    }
+
+    private func canRunSolo() -> Bool {
+        chaseUntil == nil && machine.canWander && !isHidden && model.bubble == nil && dragStart == nil && pointingAt == nil
+            && !petDetector.isPetting && Date() >= dragLockUntil && Date() >= petCalmUntil
+    }
+
+    private func soloTick(_ now: Date) {
+        guard now >= nextSoloAt, canRunSolo(), !flight.isMoving else { return }
+        var rng = SystemRandomNumberGenerator()
+        nextSoloAt = now.addingTimeInterval(SoloPlanner.delay(using: &rng))
+        let screen = screenGeometry()
+        let activity = soloPlanner.next(screen: screen, droneSize: DronePanel.droneSize, from: flight.droneCenter,
+                                        windowTops: ScreenEnvironment.windowTops(on: screen), using: &rng)
+        flySolo(activity.waypoints[...], finale: activity.finale)
+    }
+
+    private func flySolo(_ points: ArraySlice<CGPoint>, finale: IdleGesture) {
+        guard let next = points.first else {
+            model.play(.idle(finale))
+            return
+        }
+        cruise(to: next) { [weak self] in
+            guard let self, wasAway, canRunSolo() else { return }
+            flySolo(points.dropFirst(), finale: finale)
         }
     }
 

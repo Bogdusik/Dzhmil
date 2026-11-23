@@ -21,6 +21,10 @@ enum ScreenEnvironment {
         NSEvent.mouseLocation
     }
 
+    static func cursorIsOnScreen(containing point: CGPoint) -> Bool {
+        screen(containing: cursor()) === screen(containing: point)
+    }
+
     static func secondsSinceUserInput() -> TimeInterval {
         guard let any = CGEventType(rawValue: ~0) else { return 0 }
         return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: any)
