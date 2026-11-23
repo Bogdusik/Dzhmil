@@ -65,7 +65,7 @@ Dzhmil (from the Ukrainian word for "bumblebee") hovers over your windows, perch
 | **Controls your Mac** | 17 tools: apps, links, volume, timers, system status, lock, sleep, restart, AppleScript and zsh. Anything risky waits for your "yes", by button or by voice. |
 | **Explains errors** | Copy an error or a stack trace and ask "what's this?". Secrets a password manager marked as concealed are never read. |
 | **Remembers** | "Remember that my interview is on Thursday" adds a line to your profile; "forget the interview" removes it. You can read and edit everything it remembers. |
-| **Feels alive** | Eyes follow the cursor, idle gestures, emotions acted out mid-sentence, a startle when the cursor whizzes past. Throw it and it glides and steadies itself; rub it and it purrs and lets out a heart. |
+| **Feels alive** | Eyes follow the cursor, idle gestures, patrols and window-perching when you're away, emotions acted out mid-sentence, a startle when the cursor whizzes past. Throw it and it glides and steadies itself; rub it and it purrs and lets out a heart. |
 | **Your choice of AI** | Claude by default; ChatGPT, Gemini, OpenRouter or a free local model through Ollama in Settings. Paste any key and Dzhmil recognises the provider. |
 | **Speaks first, rarely** | A daily hello, a break reminder after two hours, a low-battery warning and your own timers. Never at night, in Quiet Mode or over a fullscreen app. |
 
