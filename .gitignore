@@ -8,3 +8,6 @@ xcuserdata/
 docs/superpowers/plans/
 docs/design/
 dist/
+.env
+.env.*
+!.env.example
