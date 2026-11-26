@@ -16,11 +16,17 @@ final class Onboarding {
     }
 
     func startIfNeeded() {
-        guard companion.needsKey else { return }
+        guard companion.settings.provider.needsKey else { return }
+        let stored = companion.keychain.lookup()
+        if case .found = stored { return }
         companion.onboardingSubmit = { [weak self] key in self?.submit(key) }
         Task {
             try? await Task.sleep(for: .seconds(3))
-            companion.showOnboarding(Self.greeting(companion.language))
+            if stored == .blocked {
+                companion.say(ChatError.keyBlocked.userMessage(in: companion.language))
+            } else {
+                companion.showOnboarding(Self.greeting(companion.language))
+            }
         }
     }
 
@@ -47,8 +53,10 @@ final class Onboarding {
                 let hotkey = KeyboardShortcuts.getShortcut(for: .pushToTalk)?.description ?? "⌥Space"
                 companion.say(language.pick("All set! Hold \(hotkey) and talk, and I'll answer when you let go. Double-click me to type instead.",
                                             "Готово! Зажми \(hotkey) и говори, а я отвечу, когда отпустишь. Или дважды кликни по мне, чтобы написать."))
+            case .keyBlocked?:
+                companion.say(ChatError.keyBlocked.userMessage(in: language))
             case let error? where error.meansBadKey:
-                try? companion.keychain.delete()
+                if error.meansForgetKey { try? companion.keychain.delete() }
                 companion.showOnboarding(error.userMessage(in: language) + language.pick(" Please try again.", " Попробуй ещё раз."))
             case let error?:
                 companion.say(error.userMessage(in: language) + language.pick(" I saved the key and will check it later.", " Ключ сохранён, проверю позже."))

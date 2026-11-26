@@ -23,7 +23,7 @@ final class Companion {
     let transcriber = Transcriber()
 
     private(set) lazy var confirmer = BubbleConfirmer(director: director)
-    private(set) lazy var client = RoutingClient(apiKey: { KeychainStore(account: $0.keyAccount).read() })
+    private(set) lazy var client = RoutingClient(apiKey: { try KeychainStore(account: $0.keyAccount).lookup().value() })
     private(set) lazy var conversation: Conversation = {
         let box = settingsBox
         let profile = profileStore
@@ -83,7 +83,6 @@ final class Companion {
     }
 
     var keychain: KeychainStore { KeychainStore(account: settings.provider.keyAccount) }
-    var needsKey: Bool { settings.provider.needsKey && keychain.read() == nil }
     var model: CompanionViewModel { director.model }
     var isListening: Bool { gate.isDown }
     var language: Language { settings.language }

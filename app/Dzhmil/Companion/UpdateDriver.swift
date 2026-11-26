@@ -58,8 +58,8 @@ final class UpdateDriver {
             companion.say(language.pick("I couldn't open the download page.", "Не получилось открыть страницу загрузки."))
             return
         }
-        companion.say(language.pick("I opened the download page. Download the new version, quit me and drag it onto Applications.",
-                                    "Открыл страницу загрузки. Скачай новую версию, закрой меня и перетащи её в «Программы»."))
+        companion.say(language.pick("I opened the download page. Download the new version, quit me and drag it onto Applications. If macOS asks about my saved key, click Always Allow.",
+                                    "Открыл страницу загрузки. Скачай новую версию, закрой меня и перетащи её в «Программы». Если macOS спросит про мой сохранённый ключ, нажми «Разрешать всегда» (Always Allow)."))
     }
 
     private func tick() {
