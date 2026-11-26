@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="app/Dzhmil/Assets.xcassets/AppIcon.appiconset/icon_128@2x.png" alt="Dzhmil app icon" width="128">
+
 <img src="docs/media/hero.gif" alt="Dzhmil follows the cursor with its eyes, then glides and steadies itself after being thrown" width="760">
 
 # Dzhmil
@@ -137,11 +139,13 @@ Run the tests:
 swift test --package-path app/DzhmilKit
 ```
 
-Package a DMG like the one in the release (ad-hoc signed, written to `dist/`):
+Package a DMG like the one in the release (ad-hoc signed, written to `dist/`). Finder lays out the install window, so macOS may ask to let your terminal control Finder:
 
 ```bash
 scripts/make-dmg.sh
 ```
+
+The app icon and the install window background are drawn in code; run `scripts/render-art.swift` after changing them.
 
 ## Project layout
 
