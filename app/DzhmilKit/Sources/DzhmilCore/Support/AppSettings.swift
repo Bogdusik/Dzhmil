@@ -34,6 +34,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var propellerSound = false
     public var launchAtLogin = false
     public var language = Language.english
+    public var droneColor = DronePaint.turquoise
+    public var armColor = DronePaint.frame
+    public var propellerColor = DronePaint.frame
 
     public init() {}
 
@@ -47,7 +50,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case provider, chosenModels, model, effort, chattiness, voiceEnabled, voiceVolume, propellerSound, launchAtLogin, language
+        case provider, chosenModels, model, effort, chattiness, voiceEnabled, voiceVolume, propellerSound, launchAtLogin, language, droneColor, armColor, propellerColor
     }
 
     public init(from decoder: Decoder) throws {
@@ -65,6 +68,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
         propellerSound = (try? c.decodeIfPresent(Bool.self, forKey: .propellerSound)) ?? d.propellerSound
         launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin
         language = (try? c.decodeIfPresent(Language.self, forKey: .language)) ?? d.language
+        func color(_ key: CodingKeys, _ fallback: UInt32) -> UInt32 {
+            guard let hex = try? c.decodeIfPresent(UInt32.self, forKey: key), hex <= 0xFFFFFF else { return fallback }
+            return hex
+        }
+        droneColor = color(.droneColor, d.droneColor)
+        armColor = color(.armColor, d.armColor)
+        propellerColor = color(.propellerColor, d.propellerColor)
         if !Self.efforts.contains(effort) { effort = d.effort }
     }
 
@@ -79,10 +89,17 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try c.encode(propellerSound, forKey: .propellerSound)
         try c.encode(launchAtLogin, forKey: .launchAtLogin)
         try c.encode(language, forKey: .language)
+        try c.encode(droneColor, forKey: .droneColor)
+        try c.encode(armColor, forKey: .armColor)
+        try c.encode(propellerColor, forKey: .propellerColor)
+    }
+
+    public var look: DroneLook {
+        DroneLook(body: droneColor, arms: armColor, propellers: propellerColor)
     }
 
     public var conversation: ConversationSettings {
-        ConversationSettings(model: model, effort: effort, provider: provider, language: language)
+        ConversationSettings(model: model, effort: effort, provider: provider, language: language, color: DronePaint.name(of: droneColor))
     }
 
     public static func load(from defaults: UserDefaults) -> AppSettings {

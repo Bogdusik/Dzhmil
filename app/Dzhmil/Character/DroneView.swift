@@ -4,12 +4,8 @@ import SwiftUI
 import DzhmilCore
 
 enum DronePalette {
-    static let body = cg(0x00D4AA)
-    static let belly = cg(0x009C82)
-    static let shine = cg(0x7DF3D8, alpha: 0.7)
-    static let frame = cg(0x20343A)
+    static let frame = cg(DronePaint.frame)
     static let visor = cg(0x0A1B20)
-    static let eye = cg(0x8CFFE4)
     static let uaBlue = cg(0x2B6FE0)
     static let uaYellow = cg(0xFFD23F)
 
@@ -33,10 +29,11 @@ struct DroneView: NSViewRepresentable {
     let bankDegrees: Double
     var gesture: GestureRequest? = nil
     var eyeOffset: CGVector = .zero
+    var look = DroneLook()
     var onMake: ((DroneLayerView) -> Void)? = nil
 
     func makeNSView(context: Context) -> DroneLayerView {
-        let v = DroneLayerView(width: Self.width)
+        let v = DroneLayerView(width: Self.width, look: look)
         v.apply(state: state)
         v.setBank(bankDegrees)
         onMake?(v)
@@ -44,6 +41,7 @@ struct DroneView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: DroneLayerView, context: Context) {
+        view.setLook(look)
         view.apply(state: state)
         view.setBank(bankDegrees)
         view.setEyeOffset(eyeOffset)
@@ -96,14 +94,44 @@ final class DroneLayerView: NSView {
     private var petting = false
     private var eyesOverride: DispatchWorkItem?
     private let anchor = CGPoint(x: 0.5, y: 0.55)
+    private enum Tint { case body, belly, shine, eye, accent, arms, propellers }
+    private var tinted: [(CAShapeLayer, Tint)] = []
+    private var look: DroneLook
 
-    init(width: CGFloat) {
+    init(width: CGFloat, look: DroneLook = DroneLook()) {
+        self.look = look
         let height = width * DroneView.canvas.height / DroneView.canvas.width
         super.init(frame: CGRect(x: 0, y: 0, width: width, height: height))
         wantsLayer = true
         layer?.isGeometryFlipped = true
         layer?.masksToBounds = false
         build(size: CGSize(width: width, height: height))
+        paintLayers()
+    }
+
+    func setLook(_ new: DroneLook) {
+        guard new != look else { return }
+        look = new
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        paintLayers()
+        CATransaction.commit()
+    }
+
+    private func paintLayers() {
+        let paint = DronePaint(look.body)
+        for (layer, tint) in tinted {
+            let value = switch tint {
+            case .body: DronePalette.cg(paint.body)
+            case .belly: DronePalette.cg(paint.belly)
+            case .shine: DronePalette.cg(paint.shine, alpha: 0.7)
+            case .eye: DronePalette.cg(paint.eye)
+            case .accent: DronePalette.cg(paint.accent)
+            case .arms: DronePalette.cg(look.arms)
+            case .propellers: DronePalette.cg(look.propellers)
+            }
+            if layer.strokeColor == nil { layer.fillColor = value } else { layer.strokeColor = value }
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -146,7 +174,12 @@ final class DroneLayerView: NSView {
             return l
         }
 
-        func box(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat, _ color: CGColor) -> CAShapeLayer {
+        func tint(_ layer: CAShapeLayer, _ tint: Tint) -> CAShapeLayer {
+            tinted.append((layer, tint))
+            return layer
+        }
+
+        func box(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat, _ color: CGColor = DronePalette.frame) -> CAShapeLayer {
             let l = CAShapeLayer()
             l.path = CGPath(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerWidth: min(r, w / 2), cornerHeight: min(r, h / 2), transform: nil)
             l.fillColor = color
@@ -162,7 +195,7 @@ final class DroneLayerView: NSView {
             disc.path = CGPath(ellipseIn: holder.bounds, transform: nil)
             disc.fillColor = DronePalette.frame
             disc.opacity = 0.16
-            holder.addSublayer(disc)
+            holder.addSublayer(tint(disc, .propellers))
             discs.append(disc)
             let squash = CALayer()
             squash.bounds = holder.bounds
@@ -173,17 +206,17 @@ final class DroneLayerView: NSView {
             blade.position = CGPoint(x: r, y: discH / 2)
             blade.path = CGPath(roundedRect: blade.bounds, cornerWidth: thick / 2, cornerHeight: thick / 2, transform: nil)
             blade.fillColor = DronePalette.frame
-            squash.addSublayer(blade)
+            squash.addSublayer(tint(blade, .propellers))
             holder.addSublayer(squash)
             blades.append(blade)
             return holder
         }
 
         let c = canvas
-        c.addSublayer(stroke([(96, 82), (54, 56)], 8))
-        c.addSublayer(stroke([(144, 82), (186, 56)], 8))
-        c.addSublayer(box(47, 46, 14, 13, 3, DronePalette.frame))
-        c.addSublayer(box(179, 46, 14, 13, 3, DronePalette.frame))
+        c.addSublayer(tint(stroke([(96, 82), (54, 56)], 8), .arms))
+        c.addSublayer(tint(stroke([(144, 82), (186, 56)], 8), .arms))
+        c.addSublayer(tint(box(47, 46, 14, 13, 3), .arms))
+        c.addSublayer(tint(box(179, 46, 14, 13, 3), .arms))
         c.addSublayer(propeller(54, 44, 30, 18, 8))
         c.addSublayer(propeller(186, 44, 30, 18, 8))
 
@@ -197,9 +230,9 @@ final class DroneLayerView: NSView {
         c.addSublayer(stroke([(102, 136), (96, 150)], 4))
         c.addSublayer(stroke([(138, 136), (144, 150)], 4))
 
-        c.addSublayer(box(78, 66, 84, 62, 26, DronePalette.belly))
-        c.addSublayer(box(78, 60, 84, 62, 26, DronePalette.body))
-        c.addSublayer(box(96, 65, 30, 5, 2.5, DronePalette.shine))
+        c.addSublayer(tint(box(78, 66, 84, 62, 26), .belly))
+        c.addSublayer(tint(box(78, 60, 84, 62, 26), .body))
+        c.addSublayer(tint(box(96, 65, 30, 5, 2.5), .shine))
         c.addSublayer(box(87, 76, 66, 34, 15, DronePalette.visor))
         flash.path = CGPath(roundedRect: CGRect(x: 87, y: 76, width: 66, height: 34), cornerWidth: 15, cornerHeight: 15, transform: nil)
         flash.fillColor = DronePalette.cg(0xFFFFFF)
@@ -217,18 +250,18 @@ final class DroneLayerView: NSView {
         eyesBase = eyesOpen.position
         eyesOpen.addSublayer(eyesBlink)
         eyesBlink.addSublayer(eyesDart)
-        eyesDart.addSublayer(box(0, 0, 10, 14, 5, DronePalette.eye))
-        eyesDart.addSublayer(box(28, 0, 10, 14, 5, DronePalette.eye))
+        eyesDart.addSublayer(tint(box(0, 0, 10, 14, 5), .eye))
+        eyesDart.addSublayer(tint(box(28, 0, 10, 14, 5), .eye))
         c.addSublayer(eyesOpen)
 
-        eyesHappy.addSublayer(stroke([(100, 95), (106, 87), (112, 95)], 3.2, DronePalette.eye))
-        eyesHappy.addSublayer(stroke([(128, 95), (134, 87), (140, 95)], 3.2, DronePalette.eye))
+        eyesHappy.addSublayer(tint(stroke([(100, 95), (106, 87), (112, 95)], 3.2), .eye))
+        eyesHappy.addSublayer(tint(stroke([(128, 95), (134, 87), (140, 95)], 3.2), .eye))
         c.addSublayer(eyesHappy)
 
-        eyesSad.addSublayer(stroke([(100, 90), (112, 85)], 3, DronePalette.eye))
-        eyesSad.addSublayer(stroke([(128, 85), (140, 90)], 3, DronePalette.eye))
-        eyesSad.addSublayer(box(101, 94, 10, 8, 4, DronePalette.eye))
-        eyesSad.addSublayer(box(129, 94, 10, 8, 4, DronePalette.eye))
+        eyesSad.addSublayer(tint(stroke([(100, 90), (112, 85)], 3), .eye))
+        eyesSad.addSublayer(tint(stroke([(128, 85), (140, 90)], 3), .eye))
+        eyesSad.addSublayer(tint(box(101, 94, 10, 8, 4), .eye))
+        eyesSad.addSublayer(tint(box(129, 94, 10, 8, 4), .eye))
         c.addSublayer(eyesSad)
 
         for x: CGFloat in [100, 128] {
@@ -237,16 +270,16 @@ final class DroneLayerView: NSView {
             p.addQuadCurve(to: CGPoint(x: x + 12, y: 90), control: CGPoint(x: x + 6, y: 96))
             let l = CAShapeLayer()
             l.path = p
-            l.strokeColor = DronePalette.eye
+            l.strokeColor = DronePalette.frame
             l.fillColor = nil
             l.lineWidth = 3.2
             l.lineCap = .round
-            eyesSleepy.addSublayer(l)
+            eyesSleepy.addSublayer(tint(l, .eye))
         }
         c.addSublayer(eyesSleepy)
 
         for i in 0..<3 {
-            let bar = box(0, 0, 3.5, 4, 1.5, DronePalette.eye)
+            let bar = tint(box(0, 0, 3.5, 4, 1.5), .eye)
             bar.bounds = CGRect(x: 0, y: 0, width: 3.5, height: 4)
             bar.path = CGPath(roundedRect: bar.bounds, cornerWidth: 1.5, cornerHeight: 1.5, transform: nil)
             bar.position = CGPoint(x: 114.75 + CGFloat(i) * 5.2, y: 103)
@@ -257,25 +290,24 @@ final class DroneLayerView: NSView {
         yawnMouth.bounds = CGRect(x: 0, y: 0, width: 10, height: 8)
         yawnMouth.position = CGPoint(x: 120, y: 103)
         yawnMouth.path = CGPath(ellipseIn: yawnMouth.bounds, transform: nil)
-        yawnMouth.fillColor = DronePalette.eye
         yawnMouth.opacity = 0
-        c.addSublayer(yawnMouth)
+        c.addSublayer(tint(yawnMouth, .eye))
         c.addSublayer(flash)
 
-        c.addSublayer(stroke([(92, 108), (40, 122)], 10))
-        c.addSublayer(stroke([(148, 108), (200, 122)], 10))
-        c.addSublayer(box(31, 107, 18, 17, 4, DronePalette.frame))
-        c.addSublayer(box(191, 107, 18, 17, 4, DronePalette.frame))
+        c.addSublayer(tint(stroke([(92, 108), (40, 122)], 10), .arms))
+        c.addSublayer(tint(stroke([(148, 108), (200, 122)], 10), .arms))
+        c.addSublayer(tint(box(31, 107, 18, 17, 4), .arms))
+        c.addSublayer(tint(box(191, 107, 18, 17, 4), .arms))
         c.addSublayer(propeller(40, 104, 38, 22, 10))
         c.addSublayer(propeller(200, 104, 38, 22, 10))
 
         ring.bounds = CGRect(x: 0, y: 0, width: 168, height: 168)
         ring.position = CGPoint(x: 120, y: 93.6)
         ring.path = CGPath(ellipseIn: ring.bounds, transform: nil)
-        ring.strokeColor = DronePalette.body
+        ring.strokeColor = DronePalette.frame
         ring.fillColor = nil
         ring.lineWidth = 2
-        c.addSublayer(ring)
+        c.addSublayer(tint(ring, .accent))
 
         zzz.string = "z z z"
         zzz.font = NSFont.monospacedSystemFont(ofSize: 22, weight: .semibold)

@@ -5,7 +5,6 @@ enum BubbleStyle {
     static let fill = Color(hex: 0xFFFFFF)
     static let ink = Color(hex: 0x0F2420)
     static let muted = Color(hex: 0x55706A)
-    static let accent = Color(hex: 0x008F74)
     static let code = Color(hex: 0xEEF4F2)
     static let maxWidth: CGFloat = 260
 }
@@ -13,6 +12,7 @@ enum BubbleStyle {
 struct BubbleView: View {
     let bubble: Bubble
     var language = Language.english
+    var color = DronePaint.turquoise
     var onAnswer: (Bool) -> Void = { _ in }
     var onSubmit: (String) -> Void = { _ in }
     var onReply: () -> Void = {}
@@ -45,7 +45,7 @@ struct BubbleView: View {
             VStack(alignment: .leading, spacing: 9) {
                 Text(text)
                 HStack(spacing: 8) {
-                    BubbleButton(title: language.pick("Reply", "Ответить"), primary: true, action: onReply)
+                    primaryButton(language.pick("Reply", "Ответить"), action: onReply)
                     BubbleButton(title: language.pick("Later", "Позже"), action: onLater)
                 }
             }
@@ -65,7 +65,7 @@ struct BubbleView: View {
                     .background(BubbleStyle.code, in: RoundedRectangle(cornerRadius: 8))
                 }
                 HStack(spacing: 8) {
-                    BubbleButton(title: language.pick("Yes", "Да"), primary: true) { onAnswer(true) }
+                    primaryButton(language.pick("Yes", "Да")) { onAnswer(true) }
                     BubbleButton(title: language.pick("No", "Нет")) { onAnswer(false) }
                 }
                 Text(language.pick("You can answer by voice", "Можно ответить голосом"))
@@ -89,9 +89,13 @@ struct BubbleView: View {
                     .focused($focused)
                     .onSubmit(send)
                     .onAppear { focused = true }
-                BubbleButton(title: language.pick("Save", "Сохранить"), primary: true, action: send)
+                primaryButton(language.pick("Save", "Сохранить"), action: send)
             }
         }
+    }
+
+    private func primaryButton(_ title: String, action: @escaping () -> Void) -> BubbleButton {
+        BubbleButton(title: title, fill: Color(hex: DronePaint(color).button), action: action)
     }
 
     private func send() {
@@ -110,7 +114,7 @@ struct BubbleView: View {
 
 private struct BubbleButton: View {
     let title: String
-    var primary = false
+    var fill: Color?
     let action: () -> Void
 
     var body: some View {
@@ -119,8 +123,8 @@ private struct BubbleButton: View {
                 .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
-                .foregroundStyle(primary ? .white : BubbleStyle.ink)
-                .background(primary ? BubbleStyle.accent : BubbleStyle.code, in: Capsule())
+                .foregroundStyle(fill == nil ? BubbleStyle.ink : .white)
+                .background(fill ?? BubbleStyle.code, in: Capsule())
         }
         .buttonStyle(.plain)
     }

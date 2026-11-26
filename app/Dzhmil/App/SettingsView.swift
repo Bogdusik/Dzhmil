@@ -124,6 +124,14 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Look") {
+                DroneView(state: .hover, bankDegrees: 0, look: model.settings.look)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
+                ColorRow(title: "Body", presets: DroneColorPreset.all, color: $model.settings.droneColor)
+                ColorRow(title: "Arms", presets: DroneColorPreset.parts, color: $model.settings.armColor)
+                ColorRow(title: "Propellers", presets: DroneColorPreset.parts, color: $model.settings.propellerColor)
+            }
             Section("Language") {
                 Picker("Dzhmil speaks", selection: $model.settings.language) {
                     ForEach(Language.allCases) { Text($0.title).tag($0) }
@@ -210,6 +218,56 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 500, height: 700)
+    }
+}
+
+private struct ColorRow: View {
+    let title: String
+    let presets: [DroneColorPreset]
+    @Binding var color: UInt32
+
+    private var custom: Binding<Color> {
+        Binding {
+            Color(hex: color)
+        } set: { new in
+            guard let c = NSColor(new).usingColorSpace(.sRGB) else { return }
+            func channel(_ v: CGFloat) -> UInt32 { UInt32((min(1, max(0, v)) * 255).rounded()) }
+            color = channel(c.redComponent) << 16 | channel(c.greenComponent) << 8 | channel(c.blueComponent)
+        }
+    }
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 5) {
+                ForEach(presets) { preset in
+                    Swatch(preset: preset, selected: color == preset.hex) { color = preset.hex }
+                }
+                ColorPicker("Custom \(title.lowercased()) color", selection: custom, supportsOpacity: false)
+                    .labelsHidden()
+                    .help("Custom color")
+            }
+        }
+    }
+}
+
+private struct Swatch: View {
+    let preset: DroneColorPreset
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Circle()
+                .fill(Color(hex: preset.hex))
+                .frame(width: 18, height: 18)
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.2)))
+                .padding(3)
+                .overlay(Circle().strokeBorder(Color.primary.opacity(selected ? 0.8 : 0), lineWidth: 2))
+        }
+        .buttonStyle(.plain)
+        .help(preset.name.capitalized)
+        .accessibilityLabel(preset.name.capitalized)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

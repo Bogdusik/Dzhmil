@@ -5,8 +5,10 @@ public struct ConversationSettings: Equatable, Sendable {
     public var model: String
     public var effort: String
     public var language: Language
+    public var color: String
 
-    public init(model: String, effort: String, provider: Provider = .anthropic, language: Language = .english) {
+    public init(model: String, effort: String, provider: Provider = .anthropic, language: Language = .english, color: String = "turquoise") {
+        self.color = color
         self.language = language
         self.provider = provider
         self.model = model
@@ -103,7 +105,7 @@ public actor Conversation {
     public func send(_ text: String) -> AsyncStream<ConversationEvent> {
         cancel()
         let s = settings()
-        let changed = sessionSettings.map { ($0.provider, $0.language) != (s.provider, s.language) } ?? false
+        let changed = sessionSettings.map { ($0.provider, $0.language, $0.color) != (s.provider, s.language, s.color) } ?? false
         if resetPending || changed { clearSession() }
         resetIfStale()
         sessionSettings = s
@@ -111,7 +113,7 @@ public actor Conversation {
         generation += 1
         let gen = generation
         turnSnapshot = history
-        let system = sessionSystem ?? PromptBuilder.system(profile: profile(), language: s.language)
+        let system = sessionSystem ?? PromptBuilder.system(profile: profile(), language: s.language, color: s.color)
         sessionSystem = system
         let content = PromptBuilder.userTurn(text, now: now(), timeZone: timeZone, remark: pendingRemark)
         pendingRemark = nil

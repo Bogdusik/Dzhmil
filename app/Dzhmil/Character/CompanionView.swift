@@ -15,6 +15,7 @@ enum DragPhase { case changed, ended }
 @Observable
 final class CompanionViewModel {
     var state: DroneState = .hover
+    var look = DroneLook()
     var bubble: Bubble?
     var bubbleRect: CGRect?
     var gesture: GestureRequest?
@@ -68,7 +69,7 @@ struct CompanionView: View {
                 .transition(.scale(scale: 0.85, anchor: .bottom).combined(with: .opacity))
             }
             DroneView(state: model.state, bankDegrees: model.bankDegrees, gesture: model.gesture, eyeOffset: model.eyeOffset,
-                      onMake: { model.layerView = $0 })
+                      look: model.look, onMake: { model.layerView = $0 })
                 .contentShape(Ellipse())
                 .gesture(
                     DragGesture(minimumDistance: 4, coordinateSpace: .global)

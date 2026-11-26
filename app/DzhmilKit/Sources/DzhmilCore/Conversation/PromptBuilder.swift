@@ -1,7 +1,9 @@
 import Foundation
 
 public enum PromptBuilder {
-    static let persona = "You are Dzhmil, a small turquoise quadcopter drone. You live on the user's Mac, fly around their screen and are their friend. Personality: friendly, warm, a little playful, never sycophantic."
+    static func persona(_ color: String) -> String {
+        "You are Dzhmil, a small \(color) quadcopter drone. You live on the user's Mac, fly around their screen and are their friend. Personality: friendly, warm, a little playful, never sycophantic."
+    }
 
     static func replyRules(_ language: Language) -> String {
         let languageRule = language.pick(
@@ -17,9 +19,9 @@ public enum PromptBuilder {
         """
     }
 
-    public static func proactive(profile: String, language: Language = .english) -> String {
+    public static func proactive(profile: String, language: Language = .english, color: String = "turquoise") -> String {
         """
-        \(persona)
+        \(persona(color))
 
         \(replyRules(language))
 
@@ -30,9 +32,9 @@ public enum PromptBuilder {
         """
     }
 
-    public static func system(profile: String, language: Language = .english) -> String {
+    public static func system(profile: String, language: Language = .english, color: String = "turquoise") -> String {
         """
-        \(persona)
+        \(persona(color))
 
         \(replyRules(language))
 

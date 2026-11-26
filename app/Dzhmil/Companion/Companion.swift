@@ -97,6 +97,7 @@ final class Companion {
         model.bubbleContent = { [weak self] bubble in
             AnyView(BubbleView(bubble: bubble,
                                language: self?.language ?? .english,
+                               color: self?.settings.droneColor ?? DronePaint.turquoise,
                                onAnswer: { self?.confirmer.answerFromButton($0) },
                                onSubmit: { self?.submit($0, from: bubble) },
                                onReply: { self?.replyToQuestion() },
@@ -115,6 +116,7 @@ final class Companion {
         }
 
         director.chattiness = { [weak self] in self?.settings.chattiness ?? .normal }
+        model.look = settings.look
         director.start()
         applySettings()
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })
@@ -127,6 +129,8 @@ final class Companion {
         speaker.enabled = s.voiceEnabled
         speaker.volume = Float(s.voiceVolume)
         speaker.language = s.language
+        model.look = s.look
+        director.pointer.color = s.droneColor
         director.hum.enabled = s.propellerSound
     }
 

@@ -9,8 +9,6 @@ final class PointerOverlay {
     static let spotlightRadius: CGFloat = 70
     static let lifetime: Duration = .seconds(30)
 
-    private static let mint = DronePalette.cg(0x7DF3D8)
-    private static let teal = DronePalette.body
     private static let deep = DronePalette.cg(0x0A1B20, alpha: 0.92)
 
     private var panel: NSPanel?
@@ -34,6 +32,10 @@ final class PointerOverlay {
     private var generation = 0
 
     var isVisible: Bool { panel?.isVisible == true }
+
+    var color = DronePaint.turquoise {
+        didSet { if color != oldValue { applyColors() } }
+    }
 
     func show(target: CGPoint, label: String, below window: NSWindow) {
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(target) }) ?? NSScreen.main else { return }
@@ -179,24 +181,19 @@ final class PointerOverlay {
         dim.opacity = 0
 
         glow.type = .radial
-        glow.colors = [DronePalette.cg(0x00D4AA, alpha: 0.38), DronePalette.cg(0x00D4AA, alpha: 0)]
         glow.startPoint = CGPoint(x: 0.5, y: 0.5)
         glow.endPoint = CGPoint(x: 1, y: 1)
 
-        ring.fillColor = DronePalette.cg(0x00D4AA, alpha: 0.12)
-        ring.strokeColor = Self.teal
         ring.lineWidth = 3
         addGlow(ring, radius: 8)
 
         reticle.fillColor = nil
-        reticle.strokeColor = DronePalette.cg(0x7DF3D8, alpha: 0.85)
         reticle.lineWidth = 1.5
         reticle.lineDashPattern = [5, 7]
         reticle.lineCap = .round
 
         for ripple in ripples {
             ripple.fillColor = nil
-            ripple.strokeColor = Self.mint
             ripple.lineWidth = 2
             ripple.opacity = 0
         }
@@ -205,18 +202,15 @@ final class PointerOverlay {
         addGlow(dot, radius: 6)
 
         arrowGlow.fillColor = nil
-        arrowGlow.strokeColor = DronePalette.cg(0x00D4AA, alpha: 0.28)
         arrowGlow.lineWidth = 11
         arrowGlow.lineCap = .round
         arrowMask.fillColor = nil
         arrowMask.strokeColor = .black
         arrowMask.lineWidth = 3.5
         arrowMask.lineCap = .round
-        arrowFill.colors = [Self.mint, Self.teal]
         arrowFill.mask = arrowMask
 
         head.fillColor = nil
-        head.strokeColor = Self.teal
         head.lineWidth = 3.5
         head.lineCap = .round
         head.lineJoin = .round
@@ -232,9 +226,7 @@ final class PointerOverlay {
         }
 
         pill.backgroundColor = Self.deep
-        pill.borderColor = DronePalette.cg(0x00D4AA, alpha: 0.9)
         pill.borderWidth = 1.5
-        pill.shadowColor = Self.teal
         pill.shadowOpacity = 0.55
         pill.shadowRadius = 10
         pill.shadowOffset = .zero
@@ -246,12 +238,31 @@ final class PointerOverlay {
         for layer in [dim, glow, arrowGlow, arrowFill, head] + ripples + [reticle, ring, dot] + comets + [pill] {
             root.addSublayer(layer)
         }
+        applyColors()
         panel = p
         return p
     }
 
+    private func applyColors() {
+        let paint = DronePaint(color)
+        let main = DronePalette.cg(paint.accent)
+        let light = DronePalette.cg(paint.shine)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        glow.colors = [DronePalette.cg(paint.accent, alpha: 0.38), DronePalette.cg(paint.accent, alpha: 0)]
+        ring.fillColor = DronePalette.cg(paint.accent, alpha: 0.12)
+        ring.strokeColor = main
+        reticle.strokeColor = DronePalette.cg(paint.shine, alpha: 0.85)
+        for ripple in ripples { ripple.strokeColor = light }
+        arrowGlow.strokeColor = DronePalette.cg(paint.accent, alpha: 0.28)
+        arrowFill.colors = [light, main]
+        head.strokeColor = main
+        pill.borderColor = DronePalette.cg(paint.accent, alpha: 0.9)
+        for layer in [ring, dot, head, pill] + comets { layer.shadowColor = main }
+        CATransaction.commit()
+    }
+
     private func addGlow(_ layer: CALayer, radius: CGFloat) {
-        layer.shadowColor = Self.teal
         layer.shadowOpacity = 1
         layer.shadowRadius = radius
         layer.shadowOffset = .zero
