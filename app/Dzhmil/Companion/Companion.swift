@@ -15,9 +15,6 @@ final class SettingsBox: @unchecked Sendable {
 
 @MainActor
 final class Companion {
-    static let downloadNotice = "Downloading my hearing. This happens once and takes a few minutes…"
-    static let notHeardMessage = "Sorry, I didn't catch that."
-
     let director = DroneDirector()
     let profileStore = ProfileStore()
     let timers = TimerStore(file: TimerStore.defaultFile)
@@ -35,7 +32,7 @@ final class Companion {
                 guard let self, !self.director.isHidden else { return false }
                 self.director.revealForCapture()
                 self.model.play(.cameraFlash)
-                self.show(.text("Looking at your screen…"))
+                self.show(.text(self.language.pick("Looking at your screen…", "Смотрю на твой экран…")))
                 return true
             }
             guard shown else { return false }
@@ -48,7 +45,7 @@ final class Companion {
         let beforeClipboard: @Sendable () async -> Bool = { [weak self] in
             await MainActor.run { () -> Bool in
                 guard let self, !self.director.isHidden else { return false }
-                self.show(.text("Looking at what you copied…"))
+                self.show(.text(self.language.pick("Looking at what you copied…", "Смотрю, что в буфере обмена…")))
                 return true
             }
         }
@@ -60,6 +57,7 @@ final class Companion {
                             profile: { profile.load() })
     }()
     private(set) lazy var proactive = ProactiveDriver(companion: self)
+    private(set) lazy var updates = UpdateDriver(companion: self)
 
     private let recorder = AudioRecorder()
     private var gate = PushToTalkGate()
@@ -88,10 +86,25 @@ final class Companion {
     var needsKey: Bool { settings.provider.needsKey && keychain.read() == nil }
     var model: CompanionViewModel { director.model }
     var isListening: Bool { gate.isDown }
+    var language: Language { settings.language }
+
+    var isBusy: Bool {
+        let bubbleBusy = model.bubble != nil && !replyFinished
+        return ![DroneState.hover, .flying, .sleeping].contains(director.machine.state) || bubbleBusy || isListening
+    }
+
+    private var downloadNotice: String {
+        language.pick("Downloading my hearing. This happens once and takes a few minutes…", "Скачиваю свой слух. Это нужно один раз и займёт несколько минут…")
+    }
+
+    private var notHeardMessage: String { language.pick("Sorry, I didn't catch that.", "Прости, не расслышал.") }
 
     func start() {
         model.bubbleContent = { [weak self] bubble in
             AnyView(BubbleView(bubble: bubble,
+                               language: self?.language ?? .english,
+                               color: self?.settings.droneColor ?? DronePaint.turquoise,
+                               onUpdate: { self?.updates.openUpdate() },
                                onAnswer: { self?.confirmer.answerFromButton($0) },
                                onSubmit: { self?.submit($0, from: bubble) },
                                onReply: { self?.replyToQuestion() },
@@ -110,17 +123,22 @@ final class Companion {
         }
 
         director.chattiness = { [weak self] in self?.settings.chattiness ?? .normal }
+        model.look = settings.look
         director.start()
         applySettings()
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })
         if Transcriber.isModelDownloaded { prepareHearing() }
         proactive.start()
+        updates.start()
     }
 
     func applySettings() {
         let s = settings
         speaker.enabled = s.voiceEnabled
         speaker.volume = Float(s.voiceVolume)
+        speaker.language = s.language
+        model.look = s.look
+        director.pointer.color = s.droneColor
         director.hum.enabled = s.propellerSound
     }
 
@@ -182,14 +200,14 @@ final class Companion {
         guard !gate.isDown, !director.isHidden else { return }
         switch AVAudioPermission.status {
         case .denied:
-            say("I need microphone access. Open System Settings → Privacy & Security → Microphone.")
+            say(language.pick("I need microphone access. Open System Settings → Privacy & Security → Microphone.", "Мне нужен доступ к микрофону. Открой «Системные настройки» → «Конфиденциальность и безопасность» → «Микрофон»."))
             return
         case .unknown:
             Task {
                 if await AudioRecorder.requestPermission() {
-                    say("Thanks! Now hold the key again and talk.")
+                    say(language.pick("Thanks! Now hold the key again and talk.", "Спасибо! Теперь снова зажми клавишу и говори."))
                 } else {
-                    say("Without the microphone I can't hear you. You can type to me: double-click me.")
+                    say(language.pick("Without the microphone I can't hear you. You can type to me: double-click me.", "Без микрофона я тебя не слышу. Но мне можно написать: дважды кликни по мне."))
                 }
             }
             return
@@ -235,22 +253,24 @@ final class Companion {
         }
         let generation = utteranceGeneration
         let confirmID = answeringConfirmation
-        if !Transcriber.isModelDownloaded, confirmID == nil { show(.text(Self.downloadNotice)) }
+        let language = self.language
+        let notice = downloadNotice
+        if !Transcriber.isModelDownloaded, confirmID == nil { show(.text(notice)) }
         Task {
             let raw: String
             do {
-                raw = try await transcriber.transcribe(samples)
+                raw = try await transcriber.transcribe(samples, language: language)
             } catch {
                 Log.app.error("Transcription failed: \(error.localizedDescription, privacy: .public)")
                 guard generation == utteranceGeneration else { return }
                 confirmer.stopAnswering()
                 _ = director.send(.failed)
-                say("I couldn't recognise that. The first time, I need the internet to download the speech model.")
+                say(language.pick("I couldn't recognise that. The first time, I need the internet to download the speech model.", "Не получилось распознать речь. В первый раз мне нужен интернет, чтобы скачать модель распознавания."))
                 finishAnimation()
                 return
             }
             guard generation == utteranceGeneration, !gate.isDown else { return }
-            if case .text(Self.downloadNotice)? = model.bubble { show(nil) }
+            if model.bubble == .text(notice) { show(nil) }
             guard let text = TranscriptFilter.clean(raw) else {
                 Log.app.notice("Voice: transcript of \(raw.count) characters had nothing usable")
                 notHeard()
@@ -265,7 +285,7 @@ final class Companion {
             if let yes = YesNoParser.parse(text) {
                 confirmer.resolve(yes, id: confirmer.currentID)
             } else {
-                speaker.enqueue("Please answer yes or no.")
+                speaker.enqueue(language.pick("Please answer yes or no.", "Ответь, пожалуйста: да или нет."))
             }
             return
         }
@@ -285,6 +305,16 @@ final class Companion {
             }
         } else {
             speaker.finish { [weak self] in self?.markReplyFinished() }
+        }
+    }
+
+    func offerUpdate(_ message: String) {
+        show(.update(message))
+        speaker.enqueue(message)
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(120))
+            guard !Task.isCancelled, let self, case .update? = model.bubble else { return }
+            show(nil)
         }
     }
 
@@ -318,7 +348,7 @@ final class Companion {
                     Log.app.error("Microphone failed: \(error.localizedDescription, privacy: .public)")
                     gate = PushToTalkGate()
                     _ = director.send(.failed)
-                    say("I couldn't turn the microphone on.")
+                    say(language.pick("I couldn't turn the microphone on.", "Не получилось включить микрофон."))
                     finishAnimation()
                 }
             case .stopRecording:
@@ -337,9 +367,9 @@ final class Companion {
     private func notHeard() {
         transcriptMissing()
         if director.machine.pendingConfirmation {
-            speaker.enqueue(Self.notHeardMessage)
+            speaker.enqueue(notHeardMessage)
         } else {
-            say(Self.notHeardMessage)
+            say(notHeardMessage)
         }
     }
 
@@ -351,7 +381,7 @@ final class Companion {
                 confirmer.resolve(yes, id: confirmID)
             } else {
                 _ = director.send(.transcriptEmpty)
-                speaker.enqueue("Say yes or no.")
+                speaker.enqueue(language.pick("Say yes or no.", "Скажи да или нет."))
             }
             return
         }
@@ -405,7 +435,7 @@ final class Companion {
                     ended = true
                     speaker.stop()
                     _ = director.send(.failed)
-                    say(error.userMessage)
+                    say(error.userMessage(in: language))
                     finishAnimation()
                 }
             }

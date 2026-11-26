@@ -36,12 +36,12 @@ public actor ToolExecutor {
         tools[name]?.readsUntrustedContent ?? false
     }
 
-    public func execute(_ use: ToolUse, afterUntrustedContent: Bool = false) async -> ToolOutcome {
+    public func execute(_ use: ToolUse, afterUntrustedContent: Bool = false, language: Language = .english) async -> ToolOutcome {
         guard let tool = tools[use.name] else {
             return ToolOutcome(content: "No such tool: \(use.name)", isError: true, ran: false)
         }
         if tool.risk(for: use.input) == .needsConfirmation || (afterUntrustedContent && tool.asksAfterUntrustedContent) {
-            switch await confirm(tool.confirmation(for: use.input)) {
+            switch await confirm(tool.confirmation(for: use.input, language: language)) {
             case .some(true):
                 Log.tools.notice("\(use.name, privacy: .public): confirmed")
             case .some(false):

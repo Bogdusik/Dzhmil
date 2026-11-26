@@ -7,8 +7,8 @@ struct AppleScriptTool: Tool {
 
     func risk(for input: JSONValue) -> ToolRisk { .needsConfirmation }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        ConfirmationRequest(question: "Run this AppleScript?", detail: input["script"]?.stringValue)
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        ConfirmationRequest(question: language.pick("Run this AppleScript?", "Выполнить этот AppleScript?"), detail: input["script"]?.stringValue)
     }
 
     func run(_ input: JSONValue) async throws -> String {
@@ -24,8 +24,8 @@ struct ShellTool: Tool {
 
     func risk(for input: JSONValue) -> ToolRisk { .needsConfirmation }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        ConfirmationRequest(question: "Run this command in Terminal?", detail: input["command"]?.stringValue)
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        ConfirmationRequest(question: language.pick("Run this command in Terminal?", "Выполнить эту команду в терминале?"), detail: input["command"]?.stringValue)
     }
 
     func run(_ input: JSONValue) async throws -> String {

@@ -3,9 +3,10 @@ import Foundation
 public enum TranscriptFilter {
     static let hallucinations = [
         "thank you for watching", "thanks for watching", "subtitles by", "amara.org", "please subscribe", "like and subscribe",
+        "продолжение следует", "субтитры сделал", "субтитры создавал", "субтитры подогнал", "редактор субтитров", "спасибо за просмотр",
     ]
 
-    static let wholeUtterance: Set<String> = ["you", "bye", "please subscribe"]
+    static let wholeUtterance: Set<String> = ["you", "bye", "please subscribe", "подписывайтесь на канал", "всем пока"]
 
     public static func clean(_ raw: String) -> String? {
         var text = raw.replacingOccurrences(of: #"<\|[^|]*\|>"#, with: " ", options: .regularExpression)
@@ -50,10 +51,13 @@ public struct PushToTalkGate: Sendable {
 }
 
 public enum YesNoParser {
-    static let negative: Set<String> = ["no", "nope", "nah", "cancel", "stop", "don", "dont", "not", "never", "abort"]
+    static let negative: Set<String> = ["no", "nope", "nah", "cancel", "stop", "don", "dont", "not", "never", "abort",
+                                        "нет", "не", "неа", "нельзя", "отмена", "отмени", "отменить", "стоп", "отставить"]
     static let positive: Set<String> = ["yes", "yeah", "yep", "yup", "sure", "ok", "okay", "go", "do", "confirm", "proceed",
-                                        "absolutely", "definitely", "close", "run", "launch", "quit"]
-    static let fillers: Set<String> = ["it", "ahead", "please", "just"]
+                                        "absolutely", "definitely", "close", "run", "launch", "quit",
+                                        "да", "ага", "угу", "давай", "конечно", "ок", "окей", "хорошо", "подтверждаю", "согласен",
+                                        "делай", "сделай", "закрывай", "закрой", "выполняй", "выполни", "запускай", "запусти", "открывай", "открой"]
+    static let fillers: Set<String> = ["it", "ahead", "please", "just", "ну", "же", "это", "его", "пожалуйста"]
     static let maxWords = 4
 
     public static func parse(_ text: String) -> Bool? {

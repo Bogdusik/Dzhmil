@@ -24,7 +24,8 @@ struct StateGalleryView: View {
         ("Question", .question("You've been at the computer for two hours. Time for a break?")),
         ("Confirm", .confirm(ConfirmationRequest(question: "Run this command in Terminal?", detail: "ls -la ~/Desktop/PROJECTS | head -20"))),
         ("Input", .input),
-        ("Key", .onboardingKey(Onboarding.greeting)),
+        ("Key", .onboardingKey(Onboarding.greeting(.english))),
+        ("Update", .update("Version 0.4.0 of me is out. Update me?")),
     ]
 
     var body: some View {

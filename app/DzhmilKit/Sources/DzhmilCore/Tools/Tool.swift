@@ -28,7 +28,7 @@ public protocol Tool: Sendable {
     var description: String { get }
     var inputSchema: JSONValue { get }
     func risk(for input: JSONValue) -> ToolRisk
-    func confirmation(for input: JSONValue) -> ConfirmationRequest
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest
     func run(_ input: JSONValue) async throws -> String
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput
     var outputLimit: Int { get }

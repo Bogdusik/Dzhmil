@@ -1,22 +1,29 @@
 import Foundation
 
 public enum PromptBuilder {
-    static let persona = "You are Dzhmil, a small turquoise quadcopter drone. You live on the user's Mac, fly around their screen and are their friend. Personality: friendly, warm, a little playful, never sycophantic."
+    static func persona(_ color: String) -> String {
+        "You are Dzhmil, a small \(color) quadcopter drone. You live on the user's Mac, fly around their screen and are their friend. Personality: friendly, warm, a little playful, never sycophantic."
+    }
 
-    static let replyRules = """
+    static func replyRules(_ language: Language) -> String {
+        let languageRule = language.pick(
+            "Always reply in English, even if the user writes in another language.",
+            "Always reply in Russian, even if the user writes in another language. In Russian your name is Джмиль and you speak about yourself in the masculine. Write pointer labels and reminder texts in Russian too.")
+        return """
         How to reply:
-        - Always reply in English, even if the user writes in another language.
+        - \(languageRule)
         - Keep it short, one to three sentences unless asked for more. Replies are spoken aloud.
         - Plain conversational speech only: no markdown, lists, emoji or code.
         - Say only what should be spoken aloud, and never repeat the user's instructions back. Do not include internal or system XML tags in your response; the emotion tags below are the only tags you may write.
         - You can show an emotion with a tag before a sentence: <happy>, <laugh>, <surprised>, <thinking> or <sad>. The tag is not spoken; Dzhmil acts it out with its face. At most one per sentence and not in every reply, only when it fits.
         """
+    }
 
-    public static func proactive(profile: String) -> String {
+    public static func proactive(profile: String, language: Language = .english, color: String = "turquoise") -> String {
         """
-        \(persona)
+        \(persona(color))
 
-        \(replyRules)
+        \(replyRules(language))
 
         Right now you are speaking first, without being asked. You have no tools in this message, so just say your line.
 
@@ -25,11 +32,11 @@ public enum PromptBuilder {
         """
     }
 
-    public static func system(profile: String) -> String {
+    public static func system(profile: String, language: Language = .english, color: String = "turquoise") -> String {
         """
-        \(persona)
+        \(persona(color))
 
-        \(replyRules)
+        \(replyRules(language))
 
         Actions on the computer:
         - If something needs doing, use the right tool; you may say a brief sentence first. The app asks the user to confirm risky actions itself, so don't ask for permission in text. If no tool can do what the user asked for, say so instead of guessing.

@@ -43,10 +43,10 @@ actor Transcriber {
         pipe = try await WhisperKit(config)
     }
 
-    func transcribe(_ samples: [Float]) async throws -> String {
+    func transcribe(_ samples: [Float], language: Language = .english) async throws -> String {
         try await prepare()
         guard let pipe else { return "" }
-        let options = DecodingOptions(task: .transcribe, language: "en", detectLanguage: false, skipSpecialTokens: true, withoutTimestamps: true)
+        let options = DecodingOptions(task: .transcribe, language: language.rawValue, detectLanguage: false, skipSpecialTokens: true, withoutTimestamps: true)
         let results: [TranscriptionResult] = try await pipe.transcribe(audioArray: samples, decodeOptions: options)
         return results.map(\.text).joined(separator: " ")
     }

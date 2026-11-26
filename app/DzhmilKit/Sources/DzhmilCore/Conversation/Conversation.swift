@@ -4,8 +4,12 @@ public struct ConversationSettings: Equatable, Sendable {
     public var provider: Provider
     public var model: String
     public var effort: String
+    public var language: Language
+    public var color: String
 
-    public init(model: String, effort: String, provider: Provider = .anthropic) {
+    public init(model: String, effort: String, provider: Provider = .anthropic, language: Language = .english, color: String = "turquoise") {
+        self.color = color
+        self.language = language
         self.provider = provider
         self.model = model
         self.effort = effort
@@ -25,7 +29,9 @@ public actor Conversation {
     static let maxRounds = 8
     static let staleAfter: TimeInterval = 30 * 60
     static let maxMessages = 60
-    static let lostMessage = "I got confused, let's try another way."
+    static func lostMessage(_ language: Language) -> String {
+        language.pick("I got confused, let's try another way.", "Что-то я запутался, давай попробуем иначе.")
+    }
 
     private let client: any ChatClient
     private let executor: ToolExecutor
@@ -39,7 +45,7 @@ public actor Conversation {
     private var pendingRemark: String?
     private var turnSnapshot: [JSONValue]?
     private var sessionSystem: String?
-    private var sessionProvider: Provider?
+    private var sessionSettings: ConversationSettings?
     private var sawUntrustedContent = false
     private var currentTask: Task<Void, Never>?
     private var generation = 0
@@ -82,7 +88,7 @@ public actor Conversation {
         history = []
         lastActivity = nil
         sessionSystem = nil
-        sessionProvider = nil
+        sessionSettings = nil
         sawUntrustedContent = false
         resetPending = false
     }
@@ -99,14 +105,15 @@ public actor Conversation {
     public func send(_ text: String) -> AsyncStream<ConversationEvent> {
         cancel()
         let s = settings()
-        if resetPending || (sessionProvider != nil && sessionProvider != s.provider) { clearSession() }
+        let changed = sessionSettings.map { ($0.provider, $0.language, $0.color) != (s.provider, s.language, s.color) } ?? false
+        if resetPending || changed { clearSession() }
         resetIfStale()
-        sessionProvider = s.provider
+        sessionSettings = s
         let (stream, continuation) = AsyncStream.makeStream(of: ConversationEvent.self)
         generation += 1
         let gen = generation
         turnSnapshot = history
-        let system = sessionSystem ?? PromptBuilder.system(profile: profile())
+        let system = sessionSystem ?? PromptBuilder.system(profile: profile(), language: s.language, color: s.color)
         sessionSystem = system
         let content = PromptBuilder.userTurn(text, now: now(), timeZone: timeZone, remark: pendingRemark)
         pendingRemark = nil
@@ -225,8 +232,8 @@ public actor Conversation {
                     Log.conversation.error("Tool call written as text again, giving up")
                     rollback(gen)
                     currentTask = nil
-                    continuation.yield(.sentence(Self.lostMessage))
-                    continuation.yield(.finished(text: Self.lostMessage, didAct: didAct))
+                    continuation.yield(.sentence(Self.lostMessage(s.language)))
+                    continuation.yield(.finished(text: Self.lostMessage(s.language), didAct: didAct))
                     return
                 }
                 Log.conversation.error("Tool call written as text, asking again")
@@ -249,7 +256,7 @@ public actor Conversation {
             var results: [JSONValue] = []
             for use in uses {
                 continuation.yield(.toolStarted(use.name))
-                let outcome = await executor.execute(use, afterUntrustedContent: sawUntrustedContent)
+                let outcome = await executor.execute(use, afterUntrustedContent: sawUntrustedContent, language: s.language)
                 guard isCurrent(gen) else { return }
                 if outcome.ran, executor.readsUntrustedContent(use.name) { sawUntrustedContent = true }
                 if outcome.ran && !outcome.isError { didAct = true }
@@ -269,8 +276,8 @@ public actor Conversation {
         Log.conversation.error("Gave up after \(Self.maxRounds) tool rounds")
         rollback(gen)
         currentTask = nil
-        continuation.yield(.sentence(Self.lostMessage))
-        continuation.yield(.finished(text: Self.lostMessage, didAct: didAct))
+        continuation.yield(.sentence(Self.lostMessage(s.language)))
+        continuation.yield(.finished(text: Self.lostMessage(s.language), didAct: didAct))
     }
 
     static func resultContent(_ outcome: ToolOutcome) -> JSONValue {

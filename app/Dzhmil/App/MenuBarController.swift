@@ -11,6 +11,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var hideItem: NSMenuItem!
     private var screenItem: NSMenuItem!
     private var sharingItem: NSMenuItem!
+    private var updateItem: NSMenuItem!
     static let screenSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
 
     init(companion: Companion) {
@@ -30,6 +31,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         screenItem = add("Allow Screen Access…", #selector(allowScreen))
         add("Settings…", #selector(openSettings), key: ",")
+        updateItem = add("Check for Updates…", #selector(update))
         #if DEBUG
         add("State Gallery", #selector(openGallery))
         #endif
@@ -52,6 +54,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         hideItem.title = companion.director.isHidden ? "Show" : "Hide"
         sharingItem.state = ScreenPrivacy.isEnabled ? .on : .off
         screenItem.isHidden = CGPreflightScreenCaptureAccess()
+        updateItem.title = companion.updates.available.map { "Update to \($0.version)…" } ?? "Check for Updates…"
     }
 
     @objc private func allowScreen() {
@@ -84,6 +87,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleSharing() {
         ScreenPrivacy.setEnabled(!ScreenPrivacy.isEnabled)
+    }
+
+    @objc private func update() {
+        if companion.director.isHidden { companion.setHidden(false) }
+        companion.updates.available == nil ? companion.updates.checkNow() : companion.updates.openUpdate()
     }
 
     @objc private func openSettings() {

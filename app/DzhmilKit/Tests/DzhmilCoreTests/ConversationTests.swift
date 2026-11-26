@@ -136,7 +136,7 @@ enum Fixtures {
         let junk = "<invoke name=\"mute\">\n<parameter name=\"muted\">false</parameter>\n</invoke>"
         let (conv, client) = make([Fixtures.text(junk), Fixtures.text(junk)])
         let events = await collect(await conv.send("unmute"))
-        #expect(events == [.sentence(Conversation.lostMessage), .finished(text: Conversation.lostMessage, didAct: false)])
+        #expect(events == [.sentence(Conversation.lostMessage(.english)), .finished(text: Conversation.lostMessage(.english), didAct: false)])
         #expect(client.requests.count == 2)
         #expect(await conv.history.isEmpty)
     }

@@ -4,16 +4,12 @@ import DzhmilCore
 @MainActor
 final class Speaker: NSObject {
     private let synth = AVSpeechSynthesizer()
-    private lazy var voice: AVSpeechSynthesisVoice? = {
-        let voices = AVSpeechSynthesisVoice.speechVoices().map {
-            VoiceInfo(identifier: $0.identifier, language: $0.language, quality: $0.quality.rawValue, name: $0.name)
-        }
-        return VoiceSelector.pickEnglish(from: voices).flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) }
-    }()
+    private var voices: [Language: AVSpeechSynthesisVoice] = [:]
     private var tracker = SpeechTracker<() -> Void>()
     private var startedBatch = false
     private var startActions: [ObjectIdentifier: () -> Void] = [:]
 
+    var language = Language.english
     var volume: Float = 0.8
     var enabled = true
     var onStart: (() -> Void)?
@@ -30,13 +26,24 @@ final class Speaker: NSObject {
             onStart?()
             return
         }
-        let utterance = AVSpeechUtterance(string: sentence)
-        utterance.voice = voice
+        let utterance = AVSpeechUtterance(string: SpeechText.forSpeech(sentence, language: language))
+        utterance.voice = voice(for: language)
         utterance.rate = 0.52
         utterance.volume = volume
         if let onStart { startActions[ObjectIdentifier(utterance)] = onStart }
         tracker.started()
         synth.speak(utterance)
+    }
+
+    private func voice(for language: Language) -> AVSpeechSynthesisVoice? {
+        if let voice = voices[language] { return voice }
+        let installed = AVSpeechSynthesisVoice.speechVoices().map {
+            VoiceInfo(identifier: $0.identifier, language: $0.language, quality: $0.quality.rawValue, name: $0.name)
+        }
+        let voice = VoiceSelector.pick(for: language, from: installed).flatMap { AVSpeechSynthesisVoice(identifier: $0.identifier) }
+            ?? AVSpeechSynthesisVoice(language: language.pick("en-GB", "ru-RU"))
+        voices[language] = voice
+        return voice
     }
 
     func finish(then action: @escaping () -> Void) {

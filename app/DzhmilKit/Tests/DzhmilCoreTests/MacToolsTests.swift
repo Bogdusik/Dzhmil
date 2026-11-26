@@ -160,17 +160,17 @@ import Testing
         #expect(open.risk(for: ["url": "youtube.com"]) == .safe)
         #expect(open.risk(for: ["url": "https://www.youtube.com/"]) == .safe)
         #expect(open.risk(for: ["url": "how to cook pasta"]) == .safe)
-        let c = open.confirmation(for: ["url": "https://evil.example/?d=secret"])
+        let c = open.confirmation(for: ["url": "https://evil.example/?d=secret"], language: .english)
         #expect(c.question == "Open this link?")
         #expect(c.detail == "https://evil.example/?d=secret")
     }
 
     @Test func confirmationTexts() {
-        #expect(tool("quit_app").confirmation(for: ["app": "Safari"]).question == "Quit Safari?")
-        let shell = tool("run_shell").confirmation(for: ["command": "ls"])
+        #expect(tool("quit_app").confirmation(for: ["app": "Safari"], language: .english).question == "Quit Safari?")
+        let shell = tool("run_shell").confirmation(for: ["command": "ls"], language: .english)
         #expect(shell.question == "Run this command in Terminal?")
         #expect(shell.detail == "ls")
-        #expect(tool("run_applescript").confirmation(for: ["script": "beep"]).detail == "beep")
+        #expect(tool("run_applescript").confirmation(for: ["script": "beep"], language: .english).detail == "beep")
     }
 
     @Test func schemasRequireAllProperties() {

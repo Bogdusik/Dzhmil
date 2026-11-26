@@ -62,12 +62,13 @@ struct SystemPowerTool: Tool {
         input["action"]?.stringValue == "lock" ? .safe : .needsConfirmation
     }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        switch input["action"]?.stringValue {
-        case "sleep": ConfirmationRequest(question: "Put the Mac to sleep?", detail: nil)
-        case "restart": ConfirmationRequest(question: "Restart the Mac?", detail: "Unsaved work may be lost.")
-        case "shutdown": ConfirmationRequest(question: "Shut down the Mac?", detail: "Unsaved work may be lost.")
-        default: ConfirmationRequest(question: "Lock the screen?", detail: nil)
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        let warning = language.pick("Unsaved work may be lost.", "Несохранённые данные могут пропасть.")
+        return switch input["action"]?.stringValue {
+        case "sleep": ConfirmationRequest(question: language.pick("Put the Mac to sleep?", "Усыпить Mac?"), detail: nil)
+        case "restart": ConfirmationRequest(question: language.pick("Restart the Mac?", "Перезагрузить Mac?"), detail: warning)
+        case "shutdown": ConfirmationRequest(question: language.pick("Shut down the Mac?", "Выключить Mac?"), detail: warning)
+        default: ConfirmationRequest(question: language.pick("Lock the screen?", "Заблокировать экран?"), detail: nil)
         }
     }
 

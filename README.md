@@ -66,6 +66,9 @@ Dzhmil (from the Ukrainian word for "bumblebee") hovers over your windows, perch
 | **Explains errors** | Copy an error or a stack trace and ask "what's this?". Secrets a password manager marked as concealed are never read. |
 | **Remembers** | "Remember that my interview is on Thursday" adds a line to your profile; "forget the interview" removes it. You can read and edit everything it remembers. |
 | **Feels alive** | Eyes follow the cursor, idle gestures, patrols and window-perching when you're away, emotions acted out mid-sentence, a startle when the cursor whizzes past. Throw it and it glides and steadies itself; rub it and it purrs and lets out a heart. |
+| **Your colours** | Pick the body, arm and propeller colours separately, from presets or any colour; the eyes, the pointer and the bubble buttons follow the body. |
+| **English or Russian** | Choose the language in Settings: it listens, replies, speaks and asks for confirmation in it. Menus and settings stay in English. |
+| **Asks to be updated** | When a new release is out, Dzhmil says so and opens the download page if you agree. |
 | **Your choice of AI** | Claude by default; ChatGPT, Gemini, OpenRouter or a free local model through Ollama in Settings. Paste any key and Dzhmil recognises the provider. |
 | **Speaks first, rarely** | A daily hello, a break reminder after two hours, a low-battery warning and your own timers. Never at night, in Quiet Mode or over a fullscreen app. |
 
@@ -91,7 +94,7 @@ flowchart LR
 - **Append-only history.** The conversation is never edited after the fact, so Claude's preserved thinking stays valid and prompt caching stays warm; long or idle sessions start fresh instead of being trimmed.
 - **Cheap to keep around.** The drone is drawn and animated with Core Animation in the render server: 0.3% CPU while hovering. Flight is a critically damped spring, so throws glide and settle without overshoot.
 - **Pointer maths.** A spot Claude picks on a screenshot is mapped back to global screen coordinates through the captured rect and pixel scale, across displays.
-- **Tested core.** All logic lives in a dependency-free Swift package (`DzhmilKit`) with 330+ Swift Testing tests, run on every push by GitHub Actions. The app target stays thin.
+- **Tested core.** All logic lives in a dependency-free Swift package (`DzhmilKit`) with 390+ Swift Testing tests, run on every push by GitHub Actions. The app target stays thin.
 
 ## Install
 
@@ -151,7 +154,7 @@ app/
 │       ├── Behavior/       drone state machine, proactive scheduler, petting detector
 │       ├── Flight/         flight physics, fling, perch planner, pointer layout, click-through hit shape
 │       ├── Voice/          transcript filter, push-to-talk gate, yes/no parser, voice selection, audio blocks
-│       └── Support/        settings, Keychain, profile
+│       └── Support/        settings, language, colours, update check, Keychain, profile
 └── Dzhmil/                thin app target: panels, Core Animation drone, bubbles, pointer overlay, voice I/O, menu, settings
 docs/superpowers/specs/    design documents for each feature
 ```
@@ -162,6 +165,7 @@ docs/superpowers/specs/    design documents for each feature
 - Screenshots are taken only when you ask, always with a visible flash and bubble, and are sent to the AI provider you chose as part of that conversation (nothing leaves the Mac with Ollama). Dzhmil's own windows are never in the shot.
 - The clipboard is read only when you ask about what you copied, never if a password manager marked it secret, and at most 8000 characters are sent.
 - Your profile and what Dzhmil remembers live in `~/Library/Application Support/Dzhmil/profile.md`, editable in Settings. Timers are kept in `timers.json` next to it, so a reminder survives a restart.
+- To find new versions, Dzhmil asks GitHub for the latest release at launch and every six hours. The request carries nothing about you beyond what any web request does; turn off "Check for updates" in Settings to stop it. It never downloads or installs anything by itself.
 - Text on the screen or in the clipboard is treated as data, never as instructions. Once Dzhmil has looked at the screen or the clipboard in a conversation, saving to its memory and opening links wait for your "yes", so text it read can't plant instructions for later.
 
 ## Troubleshooting

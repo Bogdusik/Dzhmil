@@ -99,12 +99,12 @@ public struct ProactiveScheduler: Codable, Equatable, Sendable {
 }
 
 public enum PhraseWriter {
-    public static func template(_ t: ProactiveTrigger) -> String {
+    public static func template(_ t: ProactiveTrigger, language: Language = .english) -> String {
         switch t {
-        case .dailyGreeting: "Hi! How's it going?"
-        case .breakReminder: "You've been at the computer for two hours. Time for a break?"
-        case .lowBattery(let n): "Battery at \(n)%. Time to charge, same as me."
-        case .timer(let label): "Reminder: \(label)"
+        case .dailyGreeting: language.pick("Hi! How's it going?", "Привет! Как дела?")
+        case .breakReminder: language.pick("You've been at the computer for two hours. Time for a break?", "Ты уже два часа за компьютером. Может, перерыв?")
+        case .lowBattery(let n): language.pick("Battery at \(n)%. Time to charge, same as me.", "Заряд \(n)%. Пора на зарядку, мне тоже.")
+        case .timer(let label): language.pick("Reminder: \(label)", "Напоминание: \(label)")
         }
     }
 
@@ -119,7 +119,7 @@ public enum PhraseWriter {
 
     public static func write(_ t: ProactiveTrigger, client: any ChatClient, settings: ConversationSettings, profile: String) async -> String {
         let prompt = "[Note] You are speaking first. Reason: \(reason(t)). Say one or two short, lively sentences, without quotes."
-        let request = MessagesRequest(model: settings.model, system: PromptBuilder.proactive(profile: profile),
+        let request = MessagesRequest(model: settings.model, system: PromptBuilder.proactive(profile: profile, language: settings.language, color: settings.color),
                                       messages: [["role": "user", "content": .string(prompt)]], tools: [], effort: settings.effort, maxTokens: 4096,
                                       provider: settings.provider)
         var final: AssistantMessage?
@@ -129,11 +129,11 @@ public enum PhraseWriter {
             }
         } catch {
             Log.conversation.error("Proactive phrase failed: \(String(describing: error), privacy: .public)")
-            return template(t)
+            return template(t, language: settings.language)
         }
         let raw = final?.text ?? ""
         let text = EmotionFilter.strip(raw).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !ToolMarkup.contains(raw) else { return template(t) }
+        guard !text.isEmpty, !ToolMarkup.contains(raw) else { return template(t, language: settings.language) }
         var splitter = SentenceSplitter()
         var sentences = splitter.feed(text)
         if let rest = splitter.flush() { sentences.append(rest) }
