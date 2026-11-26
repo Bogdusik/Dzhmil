@@ -9,7 +9,10 @@ final class Speaker: NSObject {
     private var startedBatch = false
     private var startActions: [ObjectIdentifier: () -> Void] = [:]
 
+    static let hornetPitch: Float = 0.65
+
     var language = Language.english
+    var pitch: Float = 1
     var volume: Float = 0.8
     var enabled = true
     var onStart: (() -> Void)?
@@ -29,6 +32,7 @@ final class Speaker: NSObject {
         let utterance = AVSpeechUtterance(string: SpeechText.forSpeech(sentence, language: language))
         utterance.voice = voice(for: language)
         utterance.rate = 0.52
+        utterance.pitchMultiplier = pitch
         utterance.volume = volume
         if let onStart { startActions[ObjectIdentifier(utterance)] = onStart }
         tracker.started()

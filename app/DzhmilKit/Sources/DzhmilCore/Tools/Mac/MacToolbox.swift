@@ -7,6 +7,7 @@ public enum MacToolbox {
                            profile: ProfileStore? = nil,
                            clipboard: (any ClipboardReader)? = nil,
                            beforeClipboard: @escaping @Sendable () async -> Bool = { true },
+                           transform: (@Sendable () async -> Bool)? = nil,
                            now: @escaping @Sendable () -> Date = { Date() }) -> [any Tool] {
         var tools: [any Tool] = [
             SystemStatusTool(),
@@ -26,6 +27,7 @@ public enum MacToolbox {
             tools.append(RememberTool(profile: profile))
             tools.append(ForgetTool(profile: profile))
         }
+        if let transform { tools.append(TransformTool(transform: transform)) }
         if let clipboard { tools.append(ReadClipboardTool(reader: clipboard, beforeRead: beforeClipboard)) }
         if let screen {
             let memory = ScreenshotMemory()

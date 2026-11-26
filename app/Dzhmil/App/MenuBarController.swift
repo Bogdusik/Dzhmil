@@ -12,6 +12,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private var screenItem: NSMenuItem!
     private var sharingItem: NSMenuItem!
     private var updateItem: NSMenuItem!
+    private var hornetItem: NSMenuItem!
     static let screenSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
 
     init(companion: Companion) {
@@ -20,9 +21,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         item.button?.image = Self.icon()
         item.button?.toolTip = "Dzhmil"
         menu.delegate = self
+        menu.autoenablesItems = false
 
         talkItem = add("Talk", #selector(talk))
         add("Type…", #selector(write))
+        hornetItem = add("Transform into Hornet", #selector(toggleHornet))
         menu.addItem(.separator())
         quietItem = add("Quiet Mode", #selector(toggleQuiet))
         hideItem = add("Hide", #selector(toggleHidden))
@@ -53,6 +56,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         quietItem.state = companion.director.machine.quiet ? .on : .off
         hideItem.title = companion.director.isHidden ? "Show" : "Hide"
         sharingItem.state = ScreenPrivacy.isEnabled ? .on : .off
+        let flying = companion.hornet.isActive
+        hornetItem.title = flying ? "Transform Back" : "Transform into Hornet"
+        hornetItem.isEnabled = flying || companion.director.isHidden || companion.canTransform
         screenItem.isHidden = CGPreflightScreenCaptureAccess()
         updateItem.title = companion.updates.available.map { "Update to \($0.version)…" } ?? "Check for Updates…"
     }
@@ -75,6 +81,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func write() {
         if companion.director.isHidden { companion.setHidden(false) }
         companion.openTextInput()
+    }
+
+    @objc private func toggleHornet() {
+        if companion.hornet.isActive {
+            companion.hornet.returnHome()
+            return
+        }
+        if companion.director.isHidden {
+            companion.setHidden(false)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [companion] in companion.announceHornet() }
+        } else {
+            companion.announceHornet()
+        }
     }
 
     @objc private func toggleQuiet() {
