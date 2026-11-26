@@ -88,17 +88,17 @@ enum HTTPStream {
 }
 
 public struct RoutingClient: ChatClient {
-    private let apiKey: @Sendable (Provider) -> String?
+    private let apiKey: @Sendable (Provider) throws -> String?
     private let session: URLSession
 
-    public init(apiKey: @escaping @Sendable (Provider) -> String?, session: URLSession = .shared) {
+    public init(apiKey: @escaping @Sendable (Provider) throws -> String?, session: URLSession = .shared) {
         self.apiKey = apiKey
         self.session = session
     }
 
     public func stream(_ request: MessagesRequest) -> AsyncThrowingStream<StreamEvent, Error> {
         let provider = request.provider
-        let key: @Sendable () -> String? = { [apiKey] in apiKey(provider) }
+        let key: @Sendable () throws -> String? = { [apiKey] in try apiKey(provider) }
         return switch provider.wire {
         case .anthropic: AnthropicClient(apiKey: key, session: session).stream(request)
         case .responses, .chatCompletions: OpenAIClient(provider: provider, apiKey: key, session: session).stream(request)

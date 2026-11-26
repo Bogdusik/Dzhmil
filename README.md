@@ -114,6 +114,8 @@ A ChatGPT Plus or Pro subscription is not an API key: OpenAI bills the API separ
 2. Open Dzhmil. The app is not notarized yet, so macOS stops it the first time: click **Done**, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**. You only do this once. (Or run `xattr -dr com.apple.quarantine /Applications/Dzhmil.app` in Terminal.)
 3. The drone appears and asks for your API key in a speech bubble. Paste it: Dzhmil recognises which provider it belongs to and stores it in the macOS Keychain. Switch provider or model any time in Settings → Brain.
 
+After an update macOS may ask to let Dzhmil read its saved key: enter your Mac password and click **Always Allow**. It asks because the app is not signed with an Apple Developer ID, so each new version looks like a different app. Microphone and Screen Recording access may need to be granted again for the same reason.
+
 Dzhmil uses your own API key, so you pay the provider directly for what you use; with Claude's default model and prompt caching a typical exchange costs around a cent, and you can switch to a cheaper model in Settings. Dzhmil is tuned for Claude: other models work, but pick one that supports tool calling and images, or pointing and screen questions won't work. The first voice request downloads the Whisper model (about 630 MB) into `~/Library/Application Support/Dzhmil/models`.
 
 ## Build from source

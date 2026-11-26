@@ -2,10 +2,10 @@ import Foundation
 
 public struct OpenAIClient: ChatClient {
     private let provider: Provider
-    private let apiKey: @Sendable () -> String?
+    private let apiKey: @Sendable () throws -> String?
     private let session: URLSession
 
-    public init(provider: Provider, apiKey: @escaping @Sendable () -> String?, session: URLSession = .shared) {
+    public init(provider: Provider, apiKey: @escaping @Sendable () throws -> String?, session: URLSession = .shared) {
         self.provider = provider
         self.apiKey = apiKey
         self.session = session
@@ -17,7 +17,7 @@ public struct OpenAIClient: ChatClient {
             case .responses: try ResponsesWire.body(request)
             default: try ChatCompletionsWire.body(request)
             }
-            var r = try Self.authorized(URLRequest(url: provider.endpoint), provider: provider, key: apiKey())
+            var r = try Self.authorized(URLRequest(url: provider.endpoint), provider: provider, key: try apiKey())
             r.httpMethod = "POST"
             r.httpBody = body
             r.timeoutInterval = 120

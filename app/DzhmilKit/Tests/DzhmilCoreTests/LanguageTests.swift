@@ -94,7 +94,7 @@ private func isCyrillic(_ s: String) -> Bool {
     }
 
     @Test(arguments: [ChatError.missingKey, .invalidKey, .insufficientCredit, .rateLimited, .overloaded, .network, .refusal, .incomplete,
-                      .unknownModel, .localServerDown, .api(status: 500, message: "x")])
+                      .unknownModel, .localServerDown, .keyBlocked, .api(status: 500, message: "x")])
     func errorsAreTranslated(_ error: ChatError) {
         #expect(isCyrillic(error.userMessage(in: .russian)))
         #expect(!isCyrillic(error.userMessage(in: .english)))

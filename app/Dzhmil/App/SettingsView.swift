@@ -45,7 +45,11 @@ final class SettingsModel {
             keyStatus = ""
             return
         }
-        keyStatus = companion.keychain.read() == nil ? "No key saved." : "Key saved in the Keychain."
+        keyStatus = switch companion.keychain.lookup() {
+        case .found: "Key saved in the Keychain."
+        case .missing: "No key saved."
+        case .blocked: ChatError.keyBlocked.userMessage
+        }
     }
 
     func loadModels() {

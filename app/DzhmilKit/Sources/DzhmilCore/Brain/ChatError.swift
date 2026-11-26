@@ -1,6 +1,6 @@
 public enum ChatError: Error, Equatable, Sendable {
     case missingKey, invalidKey, insufficientCredit, rateLimited, overloaded, network, refusal, incomplete
-    case unknownModel, localServerDown
+    case unknownModel, localServerDown, keyBlocked
     case api(status: Int, message: String)
 
     public var userMessage: String { userMessage(in: .english) }
@@ -15,6 +15,8 @@ public enum ChatError: Error, Equatable, Sendable {
         case .refusal: language.pick("I won't talk about that.", "Об этом я говорить не буду.")
         case .incomplete: language.pick("I lost my train of thought. Please say that again.", "Я потерял мысль. Повтори, пожалуйста.")
         case .unknownModel: language.pick("That model isn't available. Pick another one in Settings.", "Эта модель недоступна. Выбери другую в настройках.")
+        case .keyBlocked: language.pick("macOS didn't let me read my saved key. Quit me, open me again and click Always Allow.",
+                                         "macOS не дала мне прочитать сохранённый ключ. Закрой меня, открой снова и нажми «Разрешать всегда» (Always Allow).")
         case .localServerDown: language.pick("I can't reach Ollama. Is it running?", "Не могу достучаться до Ollama. Она запущена?")
         case .api(let status, _): language.pick("Something broke (code \(status)).", "Что-то сломалось (код \(status)).")
         }
@@ -22,6 +24,10 @@ public enum ChatError: Error, Equatable, Sendable {
 
     public var meansBadKey: Bool {
         self == .invalidKey || self == .missingKey
+    }
+
+    public var meansForgetKey: Bool {
+        self == .invalidKey
     }
 
     public var isRetryable: Bool {

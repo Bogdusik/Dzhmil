@@ -17,12 +17,17 @@ public struct KeychainStore: Sendable {
     }
 
     public func read() -> String? {
+        guard case .found(let key) = lookup() else { return nil }
+        return key
+    }
+
+    public func lookup() -> StoredKey {
         var query = baseQuery
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        return StoredKey.from(status: status, data: item as? Data)
     }
 
     public func save(_ value: String) throws {
@@ -42,6 +47,26 @@ public struct KeychainStore: Sendable {
     public func delete() throws {
         let status = SecItemDelete(baseQuery as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError(status: status) }
+    }
+}
+
+public enum StoredKey: Equatable, Sendable {
+    case found(String), missing, blocked
+
+    static func from(status: OSStatus, data: Data?) -> StoredKey {
+        switch status {
+        case errSecSuccess: data.flatMap { String(data: $0, encoding: .utf8) }.map(StoredKey.found) ?? .missing
+        case errSecItemNotFound: .missing
+        default: .blocked
+        }
+    }
+
+    public func value() throws -> String? {
+        switch self {
+        case .found(let key): key
+        case .missing: nil
+        case .blocked: throw ChatError.keyBlocked
+        }
     }
 }
 
