@@ -94,7 +94,7 @@ flowchart LR
 - **Append-only history.** The conversation is never edited after the fact, so Claude's preserved thinking stays valid and prompt caching stays warm; long or idle sessions start fresh instead of being trimmed.
 - **Cheap to keep around.** The drone is drawn and animated with Core Animation in the render server: 0.3% CPU while hovering. Flight is a critically damped spring, so throws glide and settle without overshoot.
 - **Pointer maths.** A spot Claude picks on a screenshot is mapped back to global screen coordinates through the captured rect and pixel scale, across displays.
-- **Tested core.** All logic lives in a dependency-free Swift package (`DzhmilKit`) with 330+ Swift Testing tests, run on every push by GitHub Actions. The app target stays thin.
+- **Tested core.** All logic lives in a dependency-free Swift package (`DzhmilKit`) with 390+ Swift Testing tests, run on every push by GitHub Actions. The app target stays thin.
 
 ## Install
 
