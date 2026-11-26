@@ -15,15 +15,20 @@ public struct VoiceInfo: Equatable, Sendable {
 }
 
 public enum VoiceSelector {
-    static let preferred = "en-gb"
-
-    public static func pickEnglish(from voices: [VoiceInfo]) -> VoiceInfo? {
-        let english = voices.filter { $0.language.lowercased().hasPrefix("en") }
-        let british = english.filter { $0.language.lowercased() == preferred }
-        return best(british.isEmpty ? english : british)
+    public static func pick(for language: Language, from voices: [VoiceInfo]) -> VoiceInfo? {
+        let matching = voices.filter { $0.language.lowercased().hasPrefix(language.rawValue) }
+        let preferred = matching.filter { $0.language.lowercased() == language.pick("en-gb", "ru-ru") }
+        return best(preferred.isEmpty ? matching : preferred)
     }
 
     private static func best(_ voices: [VoiceInfo]) -> VoiceInfo? {
         voices.sorted { $0.quality != $1.quality ? $0.quality > $1.quality : $0.name < $1.name }.first
+    }
+}
+
+public enum SpeechText {
+    public static func forSpeech(_ text: String, language: Language) -> String {
+        guard language == .russian else { return text }
+        return text.replacingOccurrences(of: "Dzhmil", with: "Джмиль")
     }
 }

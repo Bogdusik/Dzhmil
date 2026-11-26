@@ -74,7 +74,7 @@ final class ProactiveDriver {
     private func speak(_ trigger: ProactiveTrigger) async {
         let phrase: String
         if case .timer = trigger {
-            phrase = PhraseWriter.template(trigger)
+            phrase = PhraseWriter.template(trigger, language: companion.language)
         } else {
             phrase = await PhraseWriter.write(trigger, client: companion.client, settings: companion.settings.conversation,
                                               profile: companion.profileStore.load())

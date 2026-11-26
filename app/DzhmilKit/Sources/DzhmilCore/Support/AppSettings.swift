@@ -33,6 +33,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var voiceVolume = 0.8
     public var propellerSound = false
     public var launchAtLogin = false
+    public var language = Language.english
 
     public init() {}
 
@@ -46,7 +47,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case provider, chosenModels, model, effort, chattiness, voiceEnabled, voiceVolume, propellerSound, launchAtLogin
+        case provider, chosenModels, model, effort, chattiness, voiceEnabled, voiceVolume, propellerSound, launchAtLogin, language
     }
 
     public init(from decoder: Decoder) throws {
@@ -63,6 +64,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         voiceVolume = (try? c.decodeIfPresent(Double.self, forKey: .voiceVolume)) ?? d.voiceVolume
         propellerSound = (try? c.decodeIfPresent(Bool.self, forKey: .propellerSound)) ?? d.propellerSound
         launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin
+        language = (try? c.decodeIfPresent(Language.self, forKey: .language)) ?? d.language
         if !Self.efforts.contains(effort) { effort = d.effort }
     }
 
@@ -76,10 +78,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try c.encode(voiceVolume, forKey: .voiceVolume)
         try c.encode(propellerSound, forKey: .propellerSound)
         try c.encode(launchAtLogin, forKey: .launchAtLogin)
+        try c.encode(language, forKey: .language)
     }
 
     public var conversation: ConversationSettings {
-        ConversationSettings(model: model, effort: effort, provider: provider)
+        ConversationSettings(model: model, effort: effort, provider: provider, language: language)
     }
 
     public static func load(from defaults: UserDefaults) -> AppSettings {

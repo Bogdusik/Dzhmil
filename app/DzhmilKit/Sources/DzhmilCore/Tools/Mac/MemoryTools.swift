@@ -71,8 +71,8 @@ struct RememberTool: SafeTool {
         return "Remembered: \(MemoryNotes.clean(fact))"
     }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        ConfirmationRequest(question: "Remember this?", detail: input["fact"]?.stringValue.map(MemoryNotes.clean))
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        ConfirmationRequest(question: language.pick("Remember this?", "Запомнить это?"), detail: input["fact"]?.stringValue.map(MemoryNotes.clean))
     }
 }
 
@@ -89,7 +89,7 @@ struct ForgetTool: SafeTool {
         return "Forgot: " + removed.joined(separator: "; ")
     }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        ConfirmationRequest(question: "Forget what matches this?", detail: input["query"]?.stringValue)
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        ConfirmationRequest(question: language.pick("Forget what matches this?", "Забыть всё, где есть это?"), detail: input["query"]?.stringValue)
     }
 }

@@ -66,6 +66,7 @@ Dzhmil (from the Ukrainian word for "bumblebee") hovers over your windows, perch
 | **Explains errors** | Copy an error or a stack trace and ask "what's this?". Secrets a password manager marked as concealed are never read. |
 | **Remembers** | "Remember that my interview is on Thursday" adds a line to your profile; "forget the interview" removes it. You can read and edit everything it remembers. |
 | **Feels alive** | Eyes follow the cursor, idle gestures, patrols and window-perching when you're away, emotions acted out mid-sentence, a startle when the cursor whizzes past. Throw it and it glides and steadies itself; rub it and it purrs and lets out a heart. |
+| **English or Russian** | Choose the language in Settings: it listens, replies, speaks and asks for confirmation in it. Menus and settings stay in English. |
 | **Your choice of AI** | Claude by default; ChatGPT, Gemini, OpenRouter or a free local model through Ollama in Settings. Paste any key and Dzhmil recognises the provider. |
 | **Speaks first, rarely** | A daily hello, a break reminder after two hours, a low-battery warning and your own timers. Never at night, in Quiet Mode or over a fullscreen app. |
 
@@ -151,7 +152,7 @@ app/
 │       ├── Behavior/       drone state machine, proactive scheduler, petting detector
 │       ├── Flight/         flight physics, fling, perch planner, pointer layout, click-through hit shape
 │       ├── Voice/          transcript filter, push-to-talk gate, yes/no parser, voice selection, audio blocks
-│       └── Support/        settings, Keychain, profile
+│       └── Support/        settings, language, Keychain, profile
 └── Dzhmil/                thin app target: panels, Core Animation drone, bubbles, pointer overlay, voice I/O, menu, settings
 docs/superpowers/specs/    design documents for each feature
 ```

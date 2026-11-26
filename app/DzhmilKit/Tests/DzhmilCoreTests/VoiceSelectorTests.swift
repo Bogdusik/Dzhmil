@@ -11,15 +11,15 @@ import Testing
     ]
 
     @Test func prefersBritishEnglishThenQualityThenName() {
-        #expect(VoiceSelector.pickEnglish(from: voices)?.identifier == "gb.a")
+        #expect(VoiceSelector.pick(for: .english, from: voices)?.identifier == "gb.a")
     }
 
     @Test func fallsBackToAnyEnglish() {
         let noBritish = voices.filter { $0.language != "en-GB" }
-        #expect(VoiceSelector.pickEnglish(from: noBritish)?.identifier == "us.premium")
+        #expect(VoiceSelector.pick(for: .english, from: noBritish)?.identifier == "us.premium")
     }
 
     @Test func noEnglishVoice() {
-        #expect(VoiceSelector.pickEnglish(from: [voices[0]]) == nil)
+        #expect(VoiceSelector.pick(for: .english, from: [voices[0]]) == nil)
     }
 }

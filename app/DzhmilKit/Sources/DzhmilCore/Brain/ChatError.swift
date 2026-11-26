@@ -3,18 +3,20 @@ public enum ChatError: Error, Equatable, Sendable {
     case unknownModel, localServerDown
     case api(status: Int, message: String)
 
-    public var userMessage: String {
+    public var userMessage: String { userMessage(in: .english) }
+
+    public func userMessage(in language: Language) -> String {
         switch self {
-        case .missingKey: "I need an API key. Open Settings."
-        case .invalidKey: "That API key doesn't work. Check it in Settings."
-        case .insufficientCredit: "Your API balance has run out. Top it up with your provider."
-        case .rateLimited, .overloaded: "My brain is overloaded, try again in a minute."
-        case .network: "I can't reach my brain. Check your internet."
-        case .refusal: "I won't talk about that."
-        case .incomplete: "I lost my train of thought. Please say that again."
-        case .unknownModel: "That model isn't available. Pick another one in Settings."
-        case .localServerDown: "I can't reach Ollama. Is it running?"
-        case .api(let status, _): "Something broke (code \(status))."
+        case .missingKey: language.pick("I need an API key. Open Settings.", "Мне нужен API-ключ. Открой настройки.")
+        case .invalidKey: language.pick("That API key doesn't work. Check it in Settings.", "Этот API-ключ не работает. Проверь его в настройках.")
+        case .insufficientCredit: language.pick("Your API balance has run out. Top it up with your provider.", "На балансе API закончились деньги. Пополни его у провайдера.")
+        case .rateLimited, .overloaded: language.pick("My brain is overloaded, try again in a minute.", "Мой мозг перегружен, попробуй через минуту.")
+        case .network: language.pick("I can't reach my brain. Check your internet.", "Не могу достучаться до мозга. Проверь интернет.")
+        case .refusal: language.pick("I won't talk about that.", "Об этом я говорить не буду.")
+        case .incomplete: language.pick("I lost my train of thought. Please say that again.", "Я потерял мысль. Повтори, пожалуйста.")
+        case .unknownModel: language.pick("That model isn't available. Pick another one in Settings.", "Эта модель недоступна. Выбери другую в настройках.")
+        case .localServerDown: language.pick("I can't reach Ollama. Is it running?", "Не могу достучаться до Ollama. Она запущена?")
+        case .api(let status, _): language.pick("Something broke (code \(status)).", "Что-то сломалось (код \(status)).")
         }
     }
 

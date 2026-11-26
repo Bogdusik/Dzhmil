@@ -12,6 +12,7 @@ enum BubbleStyle {
 
 struct BubbleView: View {
     let bubble: Bubble
+    var language = Language.english
     var onAnswer: (Bool) -> Void = { _ in }
     var onSubmit: (String) -> Void = { _ in }
     var onReply: () -> Void = {}
@@ -44,8 +45,8 @@ struct BubbleView: View {
             VStack(alignment: .leading, spacing: 9) {
                 Text(text)
                 HStack(spacing: 8) {
-                    BubbleButton(title: "Reply", primary: true, action: onReply)
-                    BubbleButton(title: "Later", action: onLater)
+                    BubbleButton(title: language.pick("Reply", "Ответить"), primary: true, action: onReply)
+                    BubbleButton(title: language.pick("Later", "Позже"), action: onLater)
                 }
             }
 
@@ -64,16 +65,16 @@ struct BubbleView: View {
                     .background(BubbleStyle.code, in: RoundedRectangle(cornerRadius: 8))
                 }
                 HStack(spacing: 8) {
-                    BubbleButton(title: "Yes", primary: true) { onAnswer(true) }
-                    BubbleButton(title: "No") { onAnswer(false) }
+                    BubbleButton(title: language.pick("Yes", "Да"), primary: true) { onAnswer(true) }
+                    BubbleButton(title: language.pick("No", "Нет")) { onAnswer(false) }
                 }
-                Text("You can answer by voice")
+                Text(language.pick("You can answer by voice", "Можно ответить голосом"))
                     .font(.system(size: 11))
                     .foregroundStyle(BubbleStyle.muted)
             }
 
         case .input:
-            TextField("Message Dzhmil…", text: $draft)
+            TextField(language.pick("Message Dzhmil…", "Напиши Джмилю…"), text: $draft)
                 .textFieldStyle(.plain)
                 .focused($focused)
                 .frame(width: 230)
@@ -88,7 +89,7 @@ struct BubbleView: View {
                     .focused($focused)
                     .onSubmit(send)
                     .onAppear { focused = true }
-                BubbleButton(title: "Save", primary: true, action: send)
+                BubbleButton(title: language.pick("Save", "Сохранить"), primary: true, action: send)
             }
         }
     }

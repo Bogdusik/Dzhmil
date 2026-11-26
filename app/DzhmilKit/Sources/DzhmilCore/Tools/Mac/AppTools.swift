@@ -80,11 +80,11 @@ struct QuitAppTool: Tool {
 
     func risk(for input: JSONValue) -> ToolRisk { .needsConfirmation }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        let query = input["app"]?.stringValue ?? "the app"
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        let query = input["app"]?.stringValue ?? language.pick("the app", "приложение")
         let shown = AppResolver.resolve(query, among: InstalledApps.candidates(runningOnly: true))?.name ?? query
-        return ConfirmationRequest(question: force ? "Force quit \(shown)?" : "Quit \(shown)?",
-                                   detail: force ? "Unsaved work will be lost." : nil)
+        return ConfirmationRequest(question: force ? language.pick("Force quit \(shown)?", "Принудительно закрыть \(shown)?") : language.pick("Quit \(shown)?", "Закрыть \(shown)?"),
+                                   detail: force ? language.pick("Unsaved work will be lost.", "Несохранённые данные пропадут.") : nil)
     }
 
     func run(_ input: JSONValue) async throws -> String {
@@ -124,8 +124,8 @@ struct OpenURLTool: Tool {
             && parts.user == nil && parts.password == nil && parts.port == nil
     }
 
-    func confirmation(for input: JSONValue) -> ConfirmationRequest {
-        ConfirmationRequest(question: "Open this link?", detail: input["url"]?.stringValue)
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        ConfirmationRequest(question: language.pick("Open this link?", "Открыть эту ссылку?"), detail: input["url"]?.stringValue)
     }
 
     func run(_ input: JSONValue) async throws -> String {

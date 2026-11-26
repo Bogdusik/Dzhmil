@@ -19,7 +19,9 @@ struct RecordingTool: Tool {
     let runs = Counter()
 
     func risk(for input: JSONValue) -> ToolRisk { dangerous ? .needsConfirmation : .safe }
-    func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "Do \(name)?", detail: nil) }
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest {
+        ConfirmationRequest(question: language.pick("Do \(name)?", "Выполнить \(name)?"), detail: nil)
+    }
     func run(_ input: JSONValue) async throws -> String {
         await runs.increment()
         if let failure { throw ToolError.message(failure) }
@@ -32,7 +34,7 @@ struct PictureTool: Tool {
     let description = "picture tool"
     let inputSchema: JSONValue = ["type": "object", "properties": [:], "required": []]
     func risk(for input: JSONValue) -> ToolRisk { .safe }
-    func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "", detail: nil) }
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest { ConfirmationRequest(question: "", detail: nil) }
     func run(_ input: JSONValue) async throws -> String { "unused" }
     func runRich(_ input: JSONValue) async throws -> ToolRichOutput {
         ToolRichOutput(text: "Screenshot", images: [ToolImage(mediaType: "image/jpeg", base64: "AAAA")])
@@ -179,7 +181,7 @@ struct AnsweringConfirmer: ConfirmationProvider {
         #expect(readers == ["look_at_screen", "read_clipboard"])
         #expect(guarded == ["remember", "forget", "open_url"])
         let remember = try #require(tools.first { $0.name == "remember" })
-        #expect(remember.confirmation(for: ["fact": "  Interview   on Thursday "]) == ConfirmationRequest(question: "Remember this?", detail: "Interview on Thursday"))
+        #expect(remember.confirmation(for: ["fact": "  Interview   on Thursday "], language: .english) == ConfirmationRequest(question: "Remember this?", detail: "Interview on Thursday"))
     }
 
     @Test func executorAsksOnlyWhenTold() async {

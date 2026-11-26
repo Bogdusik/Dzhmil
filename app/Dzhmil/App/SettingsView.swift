@@ -124,6 +124,15 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("Language") {
+                Picker("Dzhmil speaks", selection: $model.settings.language) {
+                    ForEach(Language.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Text("Talk to Dzhmil in this language and it replies in it. Menus and settings stay in English. For a more natural voice, download an enhanced voice in System Settings under Accessibility, then restart Dzhmil.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Section("Brain") {
                 Picker("Provider", selection: $model.provider) {
                     ForEach(Provider.allCases) { Text($0.title).tag($0) }

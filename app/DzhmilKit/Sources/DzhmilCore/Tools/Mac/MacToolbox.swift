@@ -67,7 +67,7 @@ extension JSONValue {
 protocol SafeTool: Tool {}
 extension SafeTool {
     func risk(for input: JSONValue) -> ToolRisk { .safe }
-    func confirmation(for input: JSONValue) -> ConfirmationRequest { ConfirmationRequest(question: "", detail: nil) }
+    func confirmation(for input: JSONValue, language: Language) -> ConfirmationRequest { ConfirmationRequest(question: "", detail: nil) }
 }
 
 enum AppleScript {
