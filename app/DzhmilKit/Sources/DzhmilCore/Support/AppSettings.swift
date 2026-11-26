@@ -37,6 +37,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var droneColor = DronePaint.turquoise
     public var armColor = DronePaint.frame
     public var propellerColor = DronePaint.frame
+    public var checkForUpdates = true
 
     public init() {}
 
@@ -50,7 +51,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case provider, chosenModels, model, effort, chattiness, voiceEnabled, voiceVolume, propellerSound, launchAtLogin, language, droneColor, armColor, propellerColor
+        case provider, chosenModels, model, effort, chattiness, voiceEnabled, voiceVolume, propellerSound, launchAtLogin, language, droneColor, armColor, propellerColor, checkForUpdates
     }
 
     public init(from decoder: Decoder) throws {
@@ -75,6 +76,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         droneColor = color(.droneColor, d.droneColor)
         armColor = color(.armColor, d.armColor)
         propellerColor = color(.propellerColor, d.propellerColor)
+        checkForUpdates = (try? c.decodeIfPresent(Bool.self, forKey: .checkForUpdates)) ?? d.checkForUpdates
         if !Self.efforts.contains(effort) { effort = d.effort }
     }
 
@@ -92,6 +94,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         try c.encode(droneColor, forKey: .droneColor)
         try c.encode(armColor, forKey: .armColor)
         try c.encode(propellerColor, forKey: .propellerColor)
+        try c.encode(checkForUpdates, forKey: .checkForUpdates)
     }
 
     public var look: DroneLook {

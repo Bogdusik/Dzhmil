@@ -13,6 +13,7 @@ struct BubbleView: View {
     let bubble: Bubble
     var language = Language.english
     var color = DronePaint.turquoise
+    var onUpdate: () -> Void = {}
     var onAnswer: (Bool) -> Void = { _ in }
     var onSubmit: (String) -> Void = { _ in }
     var onReply: () -> Void = {}
@@ -46,6 +47,15 @@ struct BubbleView: View {
                 Text(text)
                 HStack(spacing: 8) {
                     primaryButton(language.pick("Reply", "Ответить"), action: onReply)
+                    BubbleButton(title: language.pick("Later", "Позже"), action: onLater)
+                }
+            }
+
+        case .update(let message):
+            VStack(alignment: .leading, spacing: 9) {
+                Text(message)
+                HStack(spacing: 8) {
+                    primaryButton(language.pick("Update", "Обновить"), action: onUpdate)
                     BubbleButton(title: language.pick("Later", "Позже"), action: onLater)
                 }
             }

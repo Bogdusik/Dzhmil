@@ -60,6 +60,13 @@ final class SettingsModel {
         }
     }
 
+    var version: String { companion.updates.current.description }
+
+    func checkForUpdates() {
+        if companion.director.isHidden { companion.setHidden(false) }
+        companion.updates.checkNow()
+    }
+
     func reloadProfile() {
         guard !profileDirty else { return }
         reloading = true
@@ -201,6 +208,10 @@ struct SettingsView: View {
                 Toggle("Open at login", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))
                 if !model.loginError.isEmpty {
                     Text(model.loginError).foregroundStyle(.red).font(.callout)
+                }
+                Toggle("Check for updates", isOn: $model.settings.checkForUpdates)
+                LabeledContent("Version \(model.version)") {
+                    Button("Check Now") { model.checkForUpdates() }
                 }
             }
             Section("About you") {

@@ -4,6 +4,7 @@ import DzhmilCore
 enum Bubble: Equatable {
     case text(String)
     case question(String)
+    case update(String)
     case confirm(ConfirmationRequest)
     case input
     case onboardingKey(String)

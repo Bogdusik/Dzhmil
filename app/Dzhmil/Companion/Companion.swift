@@ -57,6 +57,7 @@ final class Companion {
                             profile: { profile.load() })
     }()
     private(set) lazy var proactive = ProactiveDriver(companion: self)
+    private(set) lazy var updates = UpdateDriver(companion: self)
 
     private let recorder = AudioRecorder()
     private var gate = PushToTalkGate()
@@ -87,6 +88,11 @@ final class Companion {
     var isListening: Bool { gate.isDown }
     var language: Language { settings.language }
 
+    var isBusy: Bool {
+        let bubbleBusy = model.bubble != nil && !replyFinished
+        return ![DroneState.hover, .flying, .sleeping].contains(director.machine.state) || bubbleBusy || isListening
+    }
+
     private var downloadNotice: String {
         language.pick("Downloading my hearing. This happens once and takes a few minutes…", "Скачиваю свой слух. Это нужно один раз и займёт несколько минут…")
     }
@@ -98,6 +104,7 @@ final class Companion {
             AnyView(BubbleView(bubble: bubble,
                                language: self?.language ?? .english,
                                color: self?.settings.droneColor ?? DronePaint.turquoise,
+                               onUpdate: { self?.updates.openUpdate() },
                                onAnswer: { self?.confirmer.answerFromButton($0) },
                                onSubmit: { self?.submit($0, from: bubble) },
                                onReply: { self?.replyToQuestion() },
@@ -122,6 +129,7 @@ final class Companion {
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })
         if Transcriber.isModelDownloaded { prepareHearing() }
         proactive.start()
+        updates.start()
     }
 
     func applySettings() {
@@ -297,6 +305,16 @@ final class Companion {
             }
         } else {
             speaker.finish { [weak self] in self?.markReplyFinished() }
+        }
+    }
+
+    func offerUpdate(_ message: String) {
+        show(.update(message))
+        speaker.enqueue(message)
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(120))
+            guard !Task.isCancelled, let self, case .update? = model.bubble else { return }
+            show(nil)
         }
     }
 

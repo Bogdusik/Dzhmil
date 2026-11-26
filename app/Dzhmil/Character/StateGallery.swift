@@ -25,6 +25,7 @@ struct StateGalleryView: View {
         ("Confirm", .confirm(ConfirmationRequest(question: "Run this command in Terminal?", detail: "ls -la ~/Desktop/PROJECTS | head -20"))),
         ("Input", .input),
         ("Key", .onboardingKey(Onboarding.greeting(.english))),
+        ("Update", .update("Version 0.4.0 of me is out. Update me?")),
     ]
 
     var body: some View {
