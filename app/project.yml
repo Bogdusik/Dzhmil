@@ -35,8 +35,8 @@ targets:
       path: Dzhmil/Info.plist
       properties:
         CFBundleDisplayName: Dzhmil
-        CFBundleShortVersionString: "0.5.0"
-        CFBundleVersion: "7"
+        CFBundleShortVersionString: "0.5.1"
+        CFBundleVersion: "8"
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         LSMinimumSystemVersion: "15.0"
