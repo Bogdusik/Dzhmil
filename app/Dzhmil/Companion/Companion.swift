@@ -49,8 +49,11 @@ final class Companion {
                 return true
             }
         }
+        let transform: @Sendable () async -> Bool = { [weak self] in
+            await MainActor.run { self?.requestHornet() ?? false }
+        }
         let tools = MacToolbox.all(timers: timers, screen: SCKScreenCapturer(), beforeCapture: beforeCapture, pointer: pointer,
-                                   profile: profile, clipboard: PasteboardReader(), beforeClipboard: beforeClipboard)
+                                   profile: profile, clipboard: PasteboardReader(), beforeClipboard: beforeClipboard, transform: transform)
         return Conversation(client: client,
                             executor: ToolExecutor(tools: tools, confirmer: confirmer),
                             settings: { box.current.conversation },
@@ -58,6 +61,7 @@ final class Companion {
     }()
     private(set) lazy var proactive = ProactiveDriver(companion: self)
     private(set) lazy var updates = UpdateDriver(companion: self)
+    let hornet = HornetStage()
 
     private let recorder = AudioRecorder()
     private var gate = PushToTalkGate()
@@ -70,6 +74,8 @@ final class Companion {
     private var utteranceGeneration = 0
     private var answeringConfirmation: Int?
     private var lastReply: String?
+    private var hornetRequested = false
+    private var hornetLaunch: Task<Void, Never>?
 
     var onboardingSubmit: ((String) -> Void)?
 
@@ -89,7 +95,37 @@ final class Companion {
 
     var isBusy: Bool {
         let bubbleBusy = model.bubble != nil && !replyFinished
-        return ![DroneState.hover, .flying, .sleeping].contains(director.machine.state) || bubbleBusy || isListening
+        return ![DroneState.hover, .flying, .sleeping].contains(director.machine.state) || bubbleBusy || isListening || hornet.isActive
+    }
+
+    var canTransform: Bool {
+        !hornet.isActive && !director.isHidden && !director.machine.quiet && !director.machine.fullscreen
+            && !director.machine.pendingConfirmation && !isListening
+    }
+
+    func transformIntoHornet() {
+        guard canTransform else { return }
+        show(nil)
+        let portrait = DroneLayerView(width: DroneView.width, look: settings.look)
+        portrait.apply(state: .hover)
+        guard let image = portrait.renderImage() else { return }
+        let center = director.flight.droneCenter
+        director.setTransformed(true)
+        hornet.start(at: center, droneImage: image, soundOn: settings.hornetSound)
+    }
+
+    func announceHornet() {
+        guard canTransform else { return }
+        transformIntoHornet()
+        speaker.pitch = Speaker.hornetPitch
+        speaker.enqueue(language.pick("I am Hornet. The sky is mine now!", "Я — Шершень. Теперь небо моё!"))
+    }
+
+    private func requestHornet() -> Bool {
+        guard !hornet.isActive, !director.isHidden, !director.machine.quiet, !director.machine.fullscreen else { return false }
+        hornetRequested = true
+        speaker.pitch = Speaker.hornetPitch
+        return true
     }
 
     private var downloadNotice: String {
@@ -123,6 +159,11 @@ final class Companion {
 
         director.chattiness = { [weak self] in self?.settings.chattiness ?? .normal }
         model.look = settings.look
+        hornet.onFinished = { [weak self] in
+            self?.speaker.pitch = 1
+            self?.director.setTransformed(false)
+        }
+        director.onGrounded = { [weak self] in self?.hornet.abort() }
         director.start()
         applySettings()
         HotkeyBindings.install(onDown: { [weak self] in self?.pttDown() }, onUp: { [weak self] in self?.pttUp() })
@@ -163,6 +204,7 @@ final class Companion {
 
     func setHidden(_ hidden: Bool) {
         if hidden {
+            hornet.abort()
             utteranceGeneration += 1
             autoStopTimer?.invalidate()
             autoStopTimer = nil
@@ -176,6 +218,7 @@ final class Companion {
     }
 
     func show(_ bubble: Bubble?) {
+        if bubble != nil { hornet.abort() }
         hideTask?.cancel()
         replyFinished = false
         model.bubble = bubble
@@ -197,6 +240,8 @@ final class Companion {
 
     func pttDown() {
         guard !gate.isDown, !director.isHidden else { return }
+        hornetLaunch?.cancel()
+        hornet.abort()
         switch AVAudioPermission.status {
         case .denied:
             say(language.pick("I need microphone access. Open System Settings → Privacy & Security → Microphone.", "Мне нужен доступ к микрофону. Открой «Системные настройки» → «Конфиденциальность и безопасность» → «Микрофон»."))
@@ -280,6 +325,7 @@ final class Companion {
     }
 
     func submitText(_ text: String) {
+        hornet.abort()
         if director.machine.pendingConfirmation {
             if let yes = YesNoParser.parse(text) {
                 confirmer.resolve(yes, id: confirmer.currentID)
@@ -323,6 +369,7 @@ final class Companion {
 
     func openTextInput() {
         guard !director.machine.pendingConfirmation else { return }
+        hornet.abort()
         show(.input)
     }
 
@@ -392,6 +439,9 @@ final class Companion {
     }
 
     private func startTurn(_ text: String) {
+        hornetLaunch?.cancel()
+        hornetRequested = false
+        speaker.pitch = 1
         turnTask?.cancel()
         hideTask?.cancel()
         director.clearPointer()
@@ -429,9 +479,12 @@ final class Companion {
                         _ = director.send(.replyFinished(didAct: didAct))
                         if didAct { finishAnimation() }
                         if reply.isEmpty, case .text? = model.bubble { show(nil) } else { markReplyFinished() }
+                        if hornetRequested { launchRequestedHornet(readingTime: speaker.enabled ? 0.3 : 3) }
                     }
                 case .failed(let error):
                     ended = true
+                    hornetRequested = false
+                    speaker.pitch = 1
                     speaker.stop()
                     _ = director.send(.failed)
                     say(error.userMessage(in: language))
@@ -440,6 +493,19 @@ final class Companion {
             }
             guard let self, !ended, !Task.isCancelled else { return }
             perform(director.send(.interrupted))
+        }
+    }
+
+    private func launchRequestedHornet(readingTime: Double) {
+        hornetRequested = false
+        hornetLaunch = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(readingTime))
+            guard let self, !Task.isCancelled else { return }
+            guard canTransform else {
+                speaker.pitch = 1
+                return
+            }
+            transformIntoHornet()
         }
     }
 

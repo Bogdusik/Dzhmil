@@ -207,6 +207,7 @@ struct SettingsView: View {
                     ForEach(Chattiness.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 Toggle("Propeller sound", isOn: $model.settings.propellerSound)
+                Toggle("Hornet transformation sound", isOn: $model.settings.hornetSound)
             }
             Section("System") {
                 Toggle("Open at login", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLaunchAtLogin($0) }))

@@ -45,6 +45,8 @@ final class DroneDirector {
     private let chaseEarliest = Date().addingTimeInterval(300)
     var chattiness: () -> Chattiness = { .normal }
     private(set) var isHidden = false
+    private(set) var isTransformed = false
+    var onGrounded: (() -> Void)?
     private var hiddenEdge: ScreenEdge?
     private var lastVisibleCenter: CGPoint?
 
@@ -129,7 +131,30 @@ final class DroneDirector {
 
     func setQuiet(_ quiet: Bool) {
         send(.quietChanged(quiet))
-        if quiet { hum.setPurring(false) }
+        if quiet {
+            hum.setPurring(false)
+            onGrounded?()
+        }
+    }
+
+    func setTransformed(_ on: Bool) {
+        guard on != isTransformed else { return }
+        if on {
+            stopPetting()
+            clearPointer()
+            chaseUntil = nil
+            if machine.state == .sleeping { send(.userActive) }
+            if machine.state == .flying { send(.arrived) }
+            flight.stop()
+            isTransformed = true
+            panel.orderOut(nil)
+        } else {
+            isTransformed = false
+            nextWanderAt = Date().addingTimeInterval(.random(in: Self.wanderInterval))
+            guard !isHidden else { return }
+            panel.orderFrontRegardless()
+            model.play(.wiggle)
+        }
     }
 
     func ensureBubbleFits() {
@@ -176,7 +201,7 @@ final class DroneDirector {
     }
 
     private func lifeTick() {
-        guard !isHidden else { return }
+        guard !isHidden, !isTransformed else { return }
         ticks += 1
         let sinceInput = ScreenEnvironment.secondsSinceUserInput()
         let hour = Calendar.current.component(.hour, from: Date())
@@ -251,7 +276,7 @@ final class DroneDirector {
     }
 
     private func hitTick() {
-        guard !isHidden else {
+        guard !isHidden, !isTransformed else {
             if !panel.ignoresMouseEvents { panel.ignoresMouseEvents = true }
             return
         }
@@ -327,6 +352,7 @@ final class DroneDirector {
     }
 
     private func reclamp() {
+        onGrounded?()
         let screen = screenGeometry()
         flight.place(at: PerchPlanner.clamp(flight.droneCenter, droneSize: DronePanel.droneSize, screen: screen))
     }
